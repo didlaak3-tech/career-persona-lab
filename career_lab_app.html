@@ -1,0 +1,1869 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고등학교 1학년 진로 심화 탐구 워크북 (6차시 통합 과정)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- PDF 직접 다운로드 라이브러리 (html2pdf.js) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        window.firebaseModules = { initializeApp, getAuth, signInAnonymously, getFirestore, doc, setDoc, getDoc };
+        window.dispatchEvent(new Event('firebase-loaded'));
+    </script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-rose-50 via-purple-50 to-indigo-50 min-h-screen text-slate-800 pb-20">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // ============================================================================
+        // ★ 파이어베이스 설정 영역 (선생님의 Firebase 설정값을 넣으실 수 있으며, 안 넣어도 기기에 100% 자동 저장됩니다)
+        // ============================================================================
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // ============================================================================
+        // 1차시: 8문항 심층 흥미/강점 진단 데이터
+        // ============================================================================
+        const STEP1_QUESTIONS = [
+            {
+                id: 'q1',
+                category: '에너지 방향',
+                question: 'Q1. 학교 축제나 모둠 프로젝트를 준비할 때 내가 더 신나는 순간은?',
+                options: [
+                    { code: 'P', label: '💬 친구들과 의견을 나누고 직접 사람들을 만나며 분위기를 이끌 때', desc: '소통·협업 중심' },
+                    { code: 'T', label: '🎧 조용히 집중해서 자료를 깊이 파고들거나 완성도 높은 결과물을 만들 때', desc: '집중·탐구 중심' }
+                ]
+            },
+            {
+                id: 'q2',
+                category: '흥미 대상',
+                question: 'Q2. 유튜브나 책을 볼 때 내가 자연스럽게 더 오래 머무는 주제는?',
+                options: [
+                    { code: 'P', label: '🌱 사람들의 심리, 인간관계, 감동적인 이야기, 사회 문화 이슈', desc: '사람과 마음 중심' },
+                    { code: 'T', label: '🔬 새로운 과학·IT 기술, 데이터 분석, 세상이 돌아가는 원리와 법칙', desc: '원리와 기술 중심' }
+                ]
+            },
+            {
+                id: 'q3',
+                category: '문제 해결 방식',
+                question: 'Q3. 어려운 과제를 해결해야 할 때 나의 접근 스타일은?',
+                options: [
+                    { code: 'C', label: '🎨 남들이 시도하지 않은 참신한 아이디어와 색다른 표현 방식을 떠올린다', desc: '창의·아이디어 중심' },
+                    { code: 'S', label: '📊 정확한 근거 자료를 수집하고 순서대로 체계적인 계획을 세워 해결한다', desc: '분석·체계 중심' }
+                ]
+            },
+            {
+                id: 'q4',
+                category: '강점 발휘',
+                question: 'Q4. 수행평가에서 친구들이 나에게 주로 도움을 요청하는 부분은?',
+                options: [
+                    { code: 'C', label: '✨ 발표 피피티 디자인, 스토리 구성, 참신한 주제 잡기', desc: '기획·표현 강점' },
+                    { code: 'S', label: '📋 핵심 내용 요약 정리, 팩트 체크, 일정 관리 및 보고서 작성', desc: '정리·논리 강점' }
+                ]
+            },
+            {
+                id: 'q5',
+                category: '추구하는 가치',
+                question: 'Q5. 10년 뒤 내가 직업을 가졌을 때 가장 듣고 싶은 칭찬은?',
+                options: [
+                    { code: 'H', label: '💖 "당신 덕분에 내 삶이 따뜻해지고 큰 위로와 도움을 받았어요!"', desc: '이타심·치유·성장 가치' },
+                    { code: 'I', label: '🚀 "당신이 만든 기술과 아이디어 덕분에 세상이 훨씬 편리하고 새로워졌어요!"', desc: '혁신·성취·발전 가치' }
+                ]
+            },
+            {
+                id: 'q6',
+                category: '학습 선호도',
+                question: 'Q6. 학교 수업 시간 중 내가 더 흥미를 느끼는 활동은?',
+                options: [
+                    { code: 'H', label: '🤝 사회적 약자, 윤리, 교육, 보건 등 인간다운 삶을 고민하는 토의 활동', desc: '인문·사회·돌봄 연계' },
+                    { code: 'I', label: '💻 실험, 코딩, 통계 분석, 경제 원리 등 명확한 해법을 찾아내는 탐구 활동', desc: '수리·과학·공학·경영 연계' }
+                ]
+            },
+            {
+                id: 'q7',
+                category: '일하는 환경',
+                question: 'Q7. 내가 미래에 일하고 싶은 이상적인 공간의 모습은?',
+                options: [
+                    { code: 'C', label: '🌈 자유로운 분위기에서 매일 새로운 프로젝트와 변화를 만나는 스튜디오', desc: '유연성·자율성 선호' },
+                    { code: 'S', label: '🏛️ 명확한 매뉴얼과 안정적인 시스템 속에서 전문성을 쌓아가는 연구실/오피스', desc: '안정성·전문성 선호' }
+                ]
+            },
+            {
+                id: 'q8',
+                category: '리더십 스타일',
+                question: 'Q8. 모둠에서 의견 충돌이 생겼을 때 나의 역할은?',
+                options: [
+                    { code: 'H', label: '🫂 양쪽의 감정을 먼저 살피고 모두가 상처받지 않는 따뜻한 절충안을 찾는다', desc: '공감형 중재자' },
+                    { code: 'I', label: '⚖️ 감정에 휘둘리지 않고 가장 효과적이고 합리적인 기준을 제시해 결론을 낸다', desc: '논리형 전략가' }
+                ]
+            }
+        ];
+
+        // ============================================================================
+        // 8가지 맞춤형 진로 강점 유형 & 6차시 자동 로드맵 가이드 데이터
+        // ============================================================================
+        const CAREER_TYPES = {
+            PCH: {
+                name: '따뜻한 공감 스토리텔러형',
+                badge: '🌷 마음을 움직이는 소통가',
+                summary: '사람들의 감정을 섬세하게 읽고, 이를 창의적인 이야기나 콘텐츠로 풀어내어 세상에 위로와 선한 영향력을 전하는 강점이 있습니다.',
+                strengths: ['타인의 아픔과 필요에 깊이 공감하는 능력', '생각을 글, 말, 이미지로 매력적인 스토리로 만드는 힘', '따뜻한 소통으로 사람들의 마음을 여는 친화력'],
+                recommendedFields: ['심리상담·임상심리 전문가', '교사·교육 콘텐츠 기획자', '방송·영상 PD / 작가', '브랜드 마케터·카피라이터', '예술치료사 / 문화기획자'],
+                grade2Subjects: ['생활과 윤리', '심리학', '사회·문화', '문학', '영어독해와 작문', '미술/음악 감상과 비평'],
+                schoolActivities: [
+                    '또래 상담반 또는 교육·미디어 관련 동아리에서 친구들의 고민을 듣고 카드뉴스나 캠페인으로 제작해보기',
+                    '국어·영어 수업 시간 등장인물의 심리를 분석하거나 사회적 치유를 주제로 한 에세이 발표하기',
+                    '인문·심리·미디어 리터러시 관련 도서를 읽고 인간 중심의 소통 방식 탐구 보고서 작성하기'
+                ]
+            },
+            PCI: {
+                name: '트렌드를 이끄는 크리에이티브 기획자형',
+                badge: '🌈 시선을 사로잡는 트렌드 리더',
+                summary: '사람들이 무엇을 좋아하는지 빠르게 캐치하고, 반짝이는 아이디어와 추진력으로 세상에 없던 새로운 문화와 서비스를 기획하는 능력이 탁월합니다.',
+                strengths: ['트렌드와 대중의 심리를 빠르게 읽는 감각', '기존의 틀을 깨는 기발한 아이디어 발상', '사람들을 설득하고 프로젝트를 이끄는 에너지'],
+                recommendedFields: ['콘텐츠·엔터테인먼트 기획자', '광고·홍보 디렉터(AE)', 'UX/UI 서비스 디자이너', '글로벌 비즈니스·무역 전문가', '스타트업 창업가 / 신사업 기획자'],
+                grade2Subjects: ['사회·문화', '경제', '세계지리', '정보', '언어와 매체', '디자인 일반'],
+                schoolActivities: [
+                    '학생회나 동아리에서 학교 행사의 홍보물, 릴스 영상, 설문 이벤트를 직접 기획하고 참여율 변화 분석하기',
+                    '통합사회·경제 수업과 연계해 MZ세대 소비 트렌드나 친환경 마케팅 성공 사례 조사 발표하기',
+                    '일상 속 불편한 앱이나 학교 시설의 사용자 경험(UX)을 개선하는 아이디어 제안서 작성하기'
+                ]
+            },
+            PSH: {
+                name: '든든한 생명·공동체 수호자형',
+                badge: '🛡️ 세상을 지키는 따뜻한 전문가',
+                summary: '높은 책임감과 꼼꼼함, 그리고 사람을 향한 다정한 배려심을 바탕으로 사람들의 건강과 권리, 안전한 일상을 지켜주는 데 가장 큰 보람을 느낍니다.',
+                strengths: ['맡은 일을 끝까지 빈틈없이 해내는 성실함과 책임감', '도움이 필요한 사람을 세심하게 살피는 배려심', '원칙과 절차를 준수하며 신뢰를 주는 태도'],
+                recommendedFields: ['간호사 / 보건의료 전문가', '의사 / 약사 / 물리치료사', '초·중등 교사 / 특수교사', '사회복지사 / 국제기구(NGO) 활동가', '공공기관·보건행정 전문가'],
+                grade2Subjects: ['생명과학Ⅰ', '화학Ⅰ', '생활과 윤리', '사회·문화', '보건', '확률과 통계'],
+                schoolActivities: [
+                    '보건·의료·봉사 동아리에서 교내 응급처치 캠페인이나 청소년 건강(수면, 식습관 등) 실태 조사 진행하기',
+                    '통합과학 및 생명과학 시간에 배운 인체 생리·질병 예방 원리를 심화 탐구하여 발표하기',
+                    '의료 윤리, 공중보건, 교육 격차 해소 등 공동체의 복지를 높이는 제도적 방안 탐구 보고서 작성하기'
+                ]
+            },
+            PSI: {
+                name: '스마트한 조직·비즈니스 리더형',
+                badge: '👑 명쾌한 전략과 소통의 캡틴',
+                summary: '사람들과 원활하게 소통하면서도 객관적인 데이터와 명확한 기준으로 조직을 이끌어, 복잡한 프로젝트를 성공적으로 완수하는 리더십이 뛰어납니다.',
+                strengths: ['복잡한 이해관계를 깔끔하게 정리하고 조율하는 능력', '목표를 세우고 체계적으로 실행에 옮기는 추진력', '데이터와 근거를 바탕으로 설득력 있게 발표하는 힘'],
+                recommendedFields: ['경영·전략 컨설턴트', '변호사 / 법조인 / 경찰간부', '공인회계사 / 금융·핀테크 전문가', '국제기구·외교관 / 행정 공무원', '글로벌 프로젝트 매니저(PM)'],
+                grade2Subjects: ['정치와 법', '경제', '사회·문화', '확률과 통계', '미적분', '영어권 문화'],
+                schoolActivities: [
+                    '모의유엔, 토론 동아리, 학급 임원 활동에서 규칙을 정비하거나 갈등 사안을 합리적으로 중재한 경험 기록하기',
+                    '사회·역사·수학 교과를 융합하여 경제 지표나 사회 통계를 분석하고 정책 대안을 제시하는 보고서 작성하기',
+                    '공정성, 법치, 기업 윤리(ESG)와 관련된 시사 이슈를 선정해 찬반 근거를 비교 분석하기'
+                ]
+            },
+            TCH: {
+                name: '인간 중심의 미래 가치 연구가형',
+                badge: '🔮 깊은 통찰의 휴먼 아키텍트',
+                summary: '조용하지만 깊은 통찰력과 창의적 사고를 바탕으로, 기술과 예술, 인문학을 융합해 사람들의 삶을 더 아름답고 가치 있게 만드는 해법을 연구합니다.',
+                strengths: ['현상의 본질을 깊이 있게 파고드는 집중력과 통찰력', '인문학적 감수성과 과학·예술적 상상력을 결합하는 융합력', '독창적인 세계관과 결과물을 만들어내는 창작력'],
+                recommendedFields: ['건축가 / 친환경 공간 디자이너', '뇌과학·인지심리 연구원', '웹툰·웹소설 작가 / 일러스트레이터', '메디컬 일러스트레이터 / 의공학자', '지속가능성·환경 정책 연구원'],
+                grade2Subjects: ['윤리와 사상', '생명과학Ⅰ', '지구과학Ⅰ', '정보', '미술 창작', '기하'],
+                schoolActivities: [
+                    '과학·환경·예술 융합 탐구 활동으로 유니버설 디자인(모두를 위한 디자인)이나 친환경 건축 모델 기획하기',
+                    '뇌과학과 인간 심리, 또는 인공지능 시대의 인간성 회복을 주제로 심화 독서 및 소논문 작성하기',
+                    '자신만의 시각 자료(인포그래픽, 에세이북)를 제작하여 복잡한 과학·사회 개념을 쉽게 설명하기'
+                ]
+            },
+            TCI: {
+                name: '경계를 깨는 테크·융합 이노베이터형',
+                badge: '🚀 미래를 앞당기는 기술 개척자',
+                summary: '풍부한 호기심과 상상력을 최첨단 디지털·과학 기술로 구현해 내며, 남들이 생각하지 못한 방식으로 세상의 불편함을 해결하는 혁신가입니다.',
+                strengths: ['새로운 기술과 도구를 빠르게 습득하고 응용하는 능력', '"왜 그럴까?" 질문하며 원리를 끝까지 파헤치는 탐구심', '아이디어를 실제 작동하는 프로그램이나 모델로 구현하는 힘'],
+                recommendedFields: ['AI·소프트웨어 개발자', '로보틱스·모빌리티 엔지니어', '게임 개발자 / 메타버스·VFX 기술자', '신소재·에너지 공학 연구원', '바이오·신약 개발 연구원'],
+                grade2Subjects: ['정보', '물리학Ⅰ', '화학Ⅰ', '미적분', '기하', '인공지능 기초'],
+                schoolActivities: [
+                    '정보·코딩·과학 수업에서 파이썬이나 데이터를 활용해 학교생활의 불편함을 해결하는 미니 프로그램 제작하기',
+                    '최신 기술(생성형 AI, 자율주행, 신재생에너지 등)의 작동 원리를 수리·과학 개념과 연결해 심층 발표하기',
+                    '기술 발전이 가져올 미래 사회의 변화와 한계점을 분석하고 기술적 대안을 제시하는 탐구 보고서 작성하기'
+                ]
+            },
+            TSH: {
+                name: '정밀한 생명·데이터 연구 전문가형',
+                badge: '🔬 진실을 밝히는 치밀한 탐구자',
+                summary: '차분하고 꼼꼼한 관찰력과 분석력을 바탕으로, 실험과 데이터를 통해 정확한 원인을 찾아내고 인류의 건강과 안전에 기여하는 연구자 스타일입니다.',
+                strengths: ['작은 오차도 놓치지 않는 치밀한 관찰력과 정확성', '끈기 있게 자료를 수집하고 검증하는 연구 태도', '전문 지식을 바탕으로 문제를 근본적으로 해결하는 능력'],
+                recommendedFields: ['의학·약학·생명공학 연구원', '임상병리사 / 방사선사 / 의무기록사', '식품영양·화장품 연구원', '환경·기후 데이터 분석 전문가', '문헌정보·아카이브 전문가'],
+                grade2Subjects: ['화학Ⅰ', '생명과학Ⅰ', '확률과 통계', '미적분', '보건', '생활과 과학'],
+                schoolActivities: [
+                    '과학 실험이나 탐구 활동에서 변인을 통제하고 오차 원인을 끝까지 분석하여 완성도 높은 실험 보고서 작성하기',
+                    '의학·약학·생명과학 관련 학술 기사나 논문을 읽고, 교내 과학 교과 개념과 연결해 심화 발표하기',
+                    '식품 성분, 의약품 원리, 환경 오염 수치 등 실생활 데이터를 수집해 통계적으로 분석하는 프로젝트 수행하기'
+                ]
+            },
+            TSI: {
+                name: '무결점 데이터·시스템 아키텍트형',
+                badge: '📐 완벽을 설계하는 브레인',
+                summary: '뛰어난 논리력과 수리·분석 감각으로 복잡한 데이터 속에서 규칙을 찾아내고, 가장 효율적이고 안전한 시스템을 설계하는 핵심 브레인입니다.',
+                strengths: ['숫자, 통계, 논리 구조를 빠르고 정확하게 파악하는 힘', '감정에 치우치지 않고 객관적인 근거로 판단하는 냉철함', '복잡한 문제를 구조화하여 최적의 해법을 찾는 능력'],
+                recommendedFields: ['데이터 사이언티스트 / 빅데이터 전문가', '정보보안·화이트해커 / 클라우드 엔지니어', '금융공학·회계사·세무사·계리사', '반도체·전자·기계공학 엔지니어', '경제·산업 데이터 애널리스트'],
+                grade2Subjects: ['미적분', '확률과 통계', '기하', '정보', '물리학Ⅰ', '경제'],
+                schoolActivities: [
+                    '수학·정보 교과와 연계하여 공공데이터(기상, 교통, 경제 등)를 수집·시각화하고 경향성을 예측하는 탐구 진행하기',
+                    '알고리즘의 효율성, 암호학의 수학적 원리, 반도체 공정 등 수리·공학적 주제를 깊이 있게 파고들어 발표하기',
+                    '교내 설문조사나 데이터를 기반으로 문제점을 진단하고 논리적인 해결 프로세스를 제안하는 보고서 작성하기'
+                ]
+            }
+        };
+
+        // ============================================================================
+        // 3차시: 진로 분야별 심층 딜레마 읽기 자료 & 탐구 주제 (50분 수업용)
+        // ============================================================================
+        const DILEMMA_CASES = [
+            {
+                id: 'case1',
+                category: 'AI·미디어·콘텐츠·디자인 분야',
+                title: '생성형 AI가 만든 창작물과 인간의 고유한 가치는 무엇일까?',
+                readingText: `최근 디자인, 웹툰, 영상, 음악, 글쓰기 분야에서 생성형 AI가 단 몇 초 만에 전문가 수준의 결과물을 만들어내고 있습니다. 기업들은 비용과 시간을 아끼기 위해 AI 도입을 서두르고 있지만, 한편으로는 원작자의 저작권 침해 논란과 함께 "인간 창작자의 일자리가 사라지는 것 아니냐"는 우려가 커지고 있습니다. 또한 AI가 자극적이고 편향된 알고리즘으로 사람들의 생각을 조종할 수 있다는 문제도 제기됩니다.`,
+                questionA: '효율성과 기술 혁신을 위해 AI 창작과 자동화를 전면적으로 확대해야 한다',
+                questionB: '다소 느리더라도 인간 창작자의 권리 보호와 윤리적 규제를 최우선으로 해야 한다',
+                guideQuestions: [
+                    '1) 위 읽기 자료에서 가장 핵심이 되는 갈등(문제점)은 무엇이라고 생각하나요?',
+                    '2) 내가 배우는 고1 교과목(국어, 통합사회, 정보, 미술 등)의 개념을 연결해 볼 때, AI가 절대 대체할 수 없는 인간 전문가만의 강점은 무엇일까요?'
+                ]
+            },
+            {
+                id: 'case2',
+                category: '보건·의료·생명·심리·교육 분야',
+                title: '맞춤형 유전자·심리 데이터 활용 vs 인간의 존엄성과 사생활 보호',
+                readingText: `미래 의료와 교육, 심리상담 현장에서는 개인의 유전자 정보, 뇌파, 스마트폰 사용 습관, 감정 데이터를 실시간으로 분석해 질병이나 우울증을 미리 예측하고 맞춤형 처방을 내릴 수 있습니다. 하지만 이러한 민감한 생체·심리 데이터가 유출되거나, 보험사·학교·기업이 이를 기준으로 사람을 평가하고 차별할 위험성도 함께 존재합니다.`,
+                questionA: '생명 구조와 맞춤형 치료·교육 효과를 높이기 위해 데이터 수집과 활용을 적극 넓혀야 한다',
+                questionB: '개인의 민감한 정보 보호와 차별 방지를 위해 데이터 활용을 엄격히 제한해야 한다',
+                guideQuestions: [
+                    '1) 기술이 사람을 돕는 과정에서 발생할 수 있는 부작용은 무엇인가요?',
+                    '2) 고1 통합과학(생명시스템)이나 통합사회(인권과 정의)에서 배운 내용을 바탕으로, 환자와 학생의 인권을 지키면서도 도움을 줄 수 있는 나만의 원칙을 세워보세요.'
+                ]
+            },
+            {
+                id: 'case3',
+                category: '경영·경제·환경·공학·공공정책 분야',
+                title: '기업의 빠른 경제적 성장 vs 기후위기 대응과 사회적 약자 배려',
+                readingText: `새로운 산업과 도시를 개발할 때 가장 저렴한 비용으로 빠르게 생산성을 높이는 방식은 국가와 기업의 경제 성장을 이끌어냅니다. 그러나 그 과정에서 탄소 배출이 늘어나거나, 디지털 기기에 익숙하지 않은 고령층·취약계층이 서비스에서 소외되는 문제(예: 무인 키오스크만 있는 매장, 친환경 비용 부담 증가 등)가 발생하고 있습니다.`,
+                questionA: '글로벌 경쟁에서 살아남기 위해 우선 기술 개발과 경제적 효율성을 극대화해야 한다',
+                questionB: '성장 속도가 늦어지더라도 환경 보호(ESG)와 약자를 위한 포용적 설계를 의무화해야 한다',
+                guideQuestions: [
+                    '1) 효율성만 추구했을 때 우리 사회가 겪게 될 장기적인 문제는 무엇일까요?',
+                    '2) 고1 통합사회(자연환경과 인간, 시장경제)나 과학·정보 지식을 활용해, 경제적 가치와 사회적 가치를 동시에 살릴 수 있는 절충 아이디어를 적어보세요.'
+                ]
+            }
+        ];
+
+        const HIGH_SCHOOL_SUBJECTS = [
+            '국어', '영어', '수학', '통합사회', '통합과학', '한국사', '정보', '과학탐구실험', '기술·가정', '미술/음악', '체육'
+        ];
+
+        // ============================================================================
+        // 메인 애플리케이션 컴포넌트
+        // ============================================================================
+        function App() {
+            const [currentStep, setCurrentStep] = useState(1);
+            const [user, setUser] = useState(null);
+            const [db, setDb] = useState(null);
+            const [avatar, setAvatar] = useState('🐰');
+            const [studentId, setStudentId] = useState('');
+            const [studentName, setStudentName] = useState('');
+            const [statusMsg, setStatusMsg] = useState('자동 저장 준비됨');
+            const [toast, setToast] = useState('');
+            const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+            // 6차시 전체 심층 데이터 상태
+            const [data, setData] = useState({
+                step1: {
+                    answers: {}, // q1~q8
+                    selectedJob: '',
+                    customJob: '',
+                    wsExperience: '', // 나의 일상 속 경험과 강점
+                    wsReason: '',     // 이 진로 분야에 관심을 갖게 된 계기
+                    wsValue: ''       // 미래에 이 일을 통해 이루고 싶은 가치
+                },
+                step2: {
+                    scenarioIdx: 0,
+                    chatHistory: [
+                        {
+                            sender: 'ai',
+                            topic: '첫 인사 & 하루 일과',
+                            text: '안녕! 반가워 😊 나는 2036년 미래에서 네가 꿈꾸던 분야의 전문가로 일하고 있는 10년 뒤의 너야! 고등학교 1학년 때 네가 시작해 준 고민 덕분에 지금 정말 보람차게 일하고 있어. 먼저 내가 미래에서 어떤 하루를 보내고 있는지, 무슨 일을 하는지 물어봐 줄래?'
+                        }
+                    ],
+                    userInput: '',
+                    noteCoreWork: '',   // 인터뷰 요약 1: 핵심 업무와 매력
+                    noteCompetency: '', // 인터뷰 요약 2: 꼭 필요한 역량과 태도
+                    noteHighSchool: ''  // 인터뷰 요약 3: 고1 지금 당장 시작할 준비
+                },
+                step3: {
+                    caseId: 'case1',
+                    stance: '',
+                    linkedSubjects: [],
+                    subjectConnection: '', // 교과 개념과의 연결 분석
+                    mySolution: '',        // 나만의 해결 방안 및 윤리적 기준
+                    expectedObjection: ''  // 반대 입장에 대한 나의 반론/보완책
+                },
+                step4: {
+                    projectTitle: '',
+                    problemBackground: '', // 발견한 일상/학교/사회의 문제점과 배경
+                    targetAudience: '',    // 도움을 주고 싶은 구체적 대상
+                    coreIdea: '',          // 내 진로 역량을 활용한 핵심 해결 아이디어
+                    actionStep1: '',       // 1단계 준비 및 조사
+                    actionStep2: '',       // 2단계 제작 및 실행
+                    actionStep3: '',       // 3단계 공유 및 확산
+                    expectedEffect: ''     // 기대되는 변화
+                },
+                step5: {
+                    peerName: '',
+                    checkCreativity: 5,
+                    checkFeasibility: 5,
+                    checkEmpathy: 5,
+                    checkConnection: 5,
+                    peerPraise: '',        // 친구가 칭찬해준 강점
+                    peerQuestion: '',      // 친구가 던진 날카로운 질문이나 보완 조언
+                    myFinalRevision: '',   // 피드백을 반영해 업그레이드한 최종 기획안
+                    collaborationLesson: '' // 친구와 의견을 나누며 배운 점
+                },
+                step6: {
+                    selectedGrade2Subjects: [],
+                    roadmapGrade1: '',     // 1학년 남은 기간 목표
+                    roadmapGrade2: '',     // 2학년 심화 탐구 목표
+                    roadmapGrade3: '',     // 3학년 진로 완성 목표
+                    finalReflection: ''    // 6차시 전체 성찰 소감문
+                }
+            });
+
+            const showToast = (msg) => {
+                setToast(msg);
+                setTimeout(() => setToast(''), 3000);
+            };
+
+            // ========================================================================
+            // 1. 로컬스토리지 + Firebase 이중 안전 저장소 초기화
+            // ========================================================================
+            useEffect(() => {
+                // 먼저 기기 로컬스토리지에서 즉시 복원 (오프라인이어도 100% 작동 보장)
+                const savedLocal = localStorage.getItem('career_workbook_v3_data');
+                if (savedLocal) {
+                    try {
+                        const parsed = JSON.parse(savedLocal);
+                        if (parsed.data) setData(prev => ({ ...prev, ...parsed.data }));
+                        if (parsed.avatar) setAvatar(parsed.avatar);
+                        if (parsed.studentId) setStudentId(parsed.studentId);
+                        if (parsed.studentName) setStudentName(parsed.studentName);
+                    } catch (e) {
+                        console.warn('Local load error:', e);
+                    }
+                }
+
+                // Firebase 설정이 유효한 경우 클라우드 동기화
+                const initFirebase = async () => {
+                    if (!window.firebaseModules) return;
+                    if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
+                        setStatusMsg('기기 자동 저장 모드 ✓');
+                        return;
+                    }
+                    try {
+                        const { initializeApp, getAuth, signInAnonymously, getFirestore, doc, getDoc } = window.firebaseModules;
+                        const app = initializeApp(firebaseConfig);
+                        const auth = getAuth(app);
+                        const database = getFirestore(app);
+                        setDb(database);
+
+                        const res = await signInAnonymously(auth);
+                        setUser(res.user);
+
+                        const docRef = doc(database, "artifacts", "career_workbook_v3", "users", res.user.uid);
+                        const docSnap = await getDoc(docRef);
+                        if (docSnap.exists()) {
+                            const cloud = docSnap.data();
+                            if (cloud.data) setData(prev => ({ ...prev, ...cloud.data }));
+                            if (cloud.avatar) setAvatar(cloud.avatar);
+                            if (cloud.studentId) setStudentId(cloud.studentId);
+                            if (cloud.studentName) setStudentName(cloud.studentName);
+                        }
+                        setStatusMsg('클라우드 연동 완료 ✨');
+                    } catch (e) {
+                        console.warn("Firebase fallback to local:", e);
+                        setStatusMsg('기기 자동 저장 모드 ✓');
+                    }
+                };
+
+                if (window.firebaseModules) initFirebase();
+                else window.addEventListener('firebase-loaded', initFirebase);
+            }, []);
+
+            // 데이터 변경 시 로컬 즉시 저장 + 클라우드 디바운스 저장
+            useEffect(() => {
+                const payload = { data, avatar, studentId, studentName, updatedAt: new Date().toISOString() };
+                localStorage.setItem('career_workbook_v3_data', JSON.stringify(payload));
+                setStatusMsg('자동 저장됨 ✨');
+
+                if (!db || !user) return;
+                const timer = setTimeout(async () => {
+                    try {
+                        const { doc, setDoc } = window.firebaseModules;
+                        const docRef = doc(db, "artifacts", "career_workbook_v3", "users", user.uid);
+                        await setDoc(docRef, payload, { merge: true });
+                    } catch (e) {
+                        console.warn('Cloud sync skipped:', e);
+                    }
+                }, 800);
+                return () => clearTimeout(timer);
+            }, [data, avatar, studentId, studentName, db, user]);
+
+            const updateStepField = (stepKey, field, value) => {
+                setData(prev => ({
+                    ...prev,
+                    [stepKey]: {
+                        ...prev[stepKey],
+                        [field]: value
+                    }
+                }));
+            };
+
+            // ========================================================================
+            // 1차시 진로 강점 유형 자동 도출 로직 (8문항 기반)
+            // ========================================================================
+            const derivedTypeKey = useMemo(() => {
+                const ans = data.step1.answers || {};
+                if (Object.keys(ans).length < 8) return null;
+                let pCount = 0, tCount = 0, cCount = 0, sCount = 0, hCount = 0, iCount = 0;
+                Object.values(ans).forEach(v => {
+                    if (v === 'P') pCount++;
+                    if (v === 'T') tCount++;
+                    if (v === 'C') cCount++;
+                    if (v === 'S') sCount++;
+                    if (v === 'H') hCount++;
+                    if (v === 'I') iCount++;
+                });
+                const dim1 = pCount >= tCount ? 'P' : 'T';
+                const dim2 = cCount >= sCount ? 'C' : 'S';
+                const dim3 = hCount >= iCount ? 'H' : 'I';
+                return `${dim1}${dim2}${dim3}`;
+            }, [data.step1.answers]);
+
+            const myCareerProfile = derivedTypeKey ? CAREER_TYPES[derivedTypeKey] : null;
+            const myTargetJob = data.step1.customJob || data.step1.selectedJob || (myCareerProfile ? myCareerProfile.recommendedFields[0] : '나의 관심 진로 분야');
+
+            // ========================================================================
+            // 2차시 5단계 심층 인터뷰 AI 시나리오 응답 생성기
+            // ========================================================================
+            const INTERVIEW_PROMPTS = [
+                {
+                    step: 1,
+                    btnText: '질문 1: 2036년에 일하는 하루 일과와 가장 보람찬 순간은 언제야?',
+                    sampleQuestion: '2036년에 전문가로 일하면서 보내는 하루 일과와 가장 보람을 느끼는 순간이 궁금해!',
+                    getReply: (job, profileName) => `반가워! 지금 나는 '${job}' 분야에서 일하고 있어. 오전에는 최신 데이터와 트렌드를 점검하며 팀원들과 기획 회의를 하고, 오후에는 현장에서 사람들을 만나거나 새로운 솔루션을 설계하는 데 집중해. 가장 보람찬 순간은 내가 고민해서 만든 결과물 덕분에 누군가의 문제가 해결되고 "고맙다"는 말을 들을 때야! 고1 때 발견했던 '${profileName}'의 강점이 지금 내 최고의 무기가 되었단다. 다음으로 이 일을 하려면 어떤 능력과 태도가 필요한지 물어봐 줄래?`
+                },
+                {
+                    step: 2,
+                    btnText: '질문 2: 이 분야에서 일할 때 가장 중요한 핵심 역량과 태도는 뭐야?',
+                    sampleQuestion: '그 분야에서 인정받는 전문가가 되려면 어떤 능력과 태도가 가장 중요해?',
+                    getReply: (job) => `'${job}' 분야에서 일해보니 크게 두 가지가 정말 중요하더라. 첫째는 기본적인 교과 지식과 데이터를 정확하게 읽어내는 '기초 문해력'이고, 둘째는 인공지능이 대신할 수 없는 '따뜻한 공감과 문제 발견 능력'이야! 정답만 외우기보다 "왜 그럴까?", "어떻게 하면 더 좋아질까?"라고 스스로 질문하는 태도가 가장 큰 차이를 만들어. 혹시 내가 일하면서 겪었던 힘든 순간이나 극복 방법이 궁금하지 않니?`
+                },
+                {
+                    step: 3,
+                    btnText: '질문 3: 일하면서 가장 힘들었던 위기 순간과 극복한 방법이 궁금해!',
+                    sampleQuestion: '전문가로 성장하면서 가장 힘들었던 순간은 언제였고, 어떻게 극복했어?',
+                    getReply: (job) => `솔직히 처음부터 모든 게 완벽하진 않았어. 예상치 못한 기술 변화나 프로젝트 실패로 자신감이 떨어졌던 적도 있었거든. 하지만 그럴 때마다 실패 원인을 차분히 기록하고, 동료들과 솔직하게 피드백을 주고받으며 하나씩 수정해 나갔어. 고등학교 수행평가나 모둠 활동에서 친구들과 의견을 맞추고 끝까지 결과물을 완성해 봤던 경험이 위기를 버티는 단단한 근육이 되어주었단다!`
+                },
+                {
+                    step: 4,
+                    btnText: '질문 4: 2036년 미래에는 이 직업 환경이 지금과 어떻게 달라져 있어?',
+                    sampleQuestion: '10년 뒤 미래에는 기술 발전으로 그 분야가 어떻게 바뀌어 있어?',
+                    getReply: (job) => `2036년에는 단순 반복 작업이나 기초 자료 정리는 AI가 거의 다 도와주고 있어! 그래서 오히려 인간 전문가인 우리는 '윤리적 판단', '창의적인 융합 기획', 그리고 '사람의 마음을 어루만지는 깊은 소통'에 훨씬 더 집중하게 됐어. 한 분야만 아는 것보다 다양한 과목의 지식을 연결할 줄 아는 사람이 훨씬 환영받는 시대야!`
+                },
+                {
+                    step: 5,
+                    btnText: '질문 5: 고등학교 1학년인 내가 지금 학교에서 꼭 해두면 좋을 경험은?',
+                    sampleQuestion: '고1인 내가 지금 학교 수업이나 동아리에서 당장 시작할 수 있는 준비는 뭐가 있을까?',
+                    getReply: (job) => `거창한 스펙보다 지금 학교 수업을 네 진로와 연결해 보는 게 최고야! 수업 시간에 배운 개념 중 흥미로운 걸 골라 '${job}'의 시각에서 짧은 탐구 보고서를 써보거나, 관련된 책 한 권을 깊이 읽고 네 생각을 정리해 봐. 그리고 아래 [인터뷰 핵심 요약 노트] 3가지를 꼼꼼히 적어서 기록으로 남겨두면 너의 멋진 자산이 될 거야. 언제나 응원할게! ✨`
+                }
+            ];
+
+            const handleSendInterviewMessage = (customText) => {
+                const queryText = (customText || data.step2.userInput || '').trim();
+                if (!queryText) return;
+
+                const currentIdx = data.step2.scenarioIdx || 0;
+                const promptObj = INTERVIEW_PROMPTS[Math.min(currentIdx, INTERVIEW_PROMPTS.length - 1)];
+                const profileName = myCareerProfile ? myCareerProfile.name : '나만의 강점';
+                const aiReplyText = promptObj.getReply(myTargetJob, profileName);
+
+                const newHistory = [
+                    ...(data.step2.chatHistory || []),
+                    { sender: 'user', text: queryText },
+                    { sender: 'ai', topic: `심층 답변 ${Math.min(currentIdx + 1, 5)}/5`, text: aiReplyText }
+                ];
+
+                setData(prev => ({
+                    ...prev,
+                    step2: {
+                        ...prev.step2,
+                        scenarioIdx: Math.min(currentIdx + 1, 5),
+                        chatHistory: newHistory,
+                        userInput: ''
+                    }
+                }));
+            };
+
+            // ========================================================================
+            // 차시별 50분 수행 완료도(%) 계산기
+            // ========================================================================
+            const stepProgress = useMemo(() => {
+                // 1차시: 8문항 + 직업선택 + 서술형 3문항
+                const s1Ans = Object.keys(data.step1.answers || {}).length * 6; // 48
+                const s1Text = (data.step1.wsExperience.length >= 20 ? 18 : 0) + (data.step1.wsReason.length >= 20 ? 17 : 0) + (data.step1.wsValue.length >= 20 ? 17 : 0);
+                const p1 = Math.min(100, s1Ans + s1Text);
+
+                // 2차시: 인터뷰 대화 3회 이상 + 요약 노트 3문항
+                const chatCount = Math.floor(((data.step2.chatHistory || []).length - 1) / 2);
+                const s2Chat = Math.min(40, chatCount * 10);
+                const s2Notes = (data.step2.noteCoreWork.length >= 20 ? 20 : 0) + (data.step2.noteCompetency.length >= 20 ? 20 : 0) + (data.step2.noteHighSchool.length >= 20 ? 20 : 0);
+                const p2 = Math.min(100, s2Chat + s2Notes);
+
+                // 3차시: 입장선택 + 연결교과 + 서술형 3문항
+                const s3Base = (data.step3.stance ? 20 : 0) + (data.step3.linkedSubjects.length > 0 ? 20 : 0);
+                const s3Text = (data.step3.subjectConnection.length >= 20 ? 20 : 0) + (data.step3.mySolution.length >= 25 ? 20 : 0) + (data.step3.expectedObjection.length >= 15 ? 20 : 0);
+                const p3 = Math.min(100, s3Base + s3Text);
+
+                // 4차시: 프로젝트 기획서 7개 항목
+                const s4Fields = [data.step4.projectTitle, data.step4.problemBackground, data.step4.targetAudience, data.step4.coreIdea, data.step4.actionStep1, data.step4.actionStep2, data.step4.expectedEffect];
+                const filledS4 = s4Fields.filter(f => (f || '').trim().length >= 5).length;
+                const p4 = Math.round((filledS4 / 7) * 100);
+
+                // 5차시: 짝꿍 이름 + 서술형 4개 항목
+                const s5Fields = [data.step5.peerName, data.step5.peerPraise, data.step5.peerQuestion, data.step5.myFinalRevision, data.step5.collaborationLesson];
+                const filledS5 = s5Fields.filter(f => (f || '').trim().length >= 2).length;
+                const p5 = Math.round((filledS5 / 5) * 100);
+
+                // 6차시: 선택과목 + 학년별 로드맵 3개 + 최종 소감
+                const s6Subj = data.step6.selectedGrade2Subjects.length > 0 ? 20 : 0;
+                const s6Text = (data.step6.roadmapGrade1.length >= 10 ? 20 : 0) + (data.step6.roadmapGrade2.length >= 10 ? 20 : 0) + (data.step6.roadmapGrade3.length >= 10 ? 20 : 0) + (data.step6.finalReflection.length >= 25 ? 20 : 0);
+                const p6 = Math.min(100, s6Subj + s6Text);
+
+                return { 1: p1, 2: p2, 3: p3, 4: p4, 5: p5, 6: p6 };
+            }, [data]);
+
+            // ========================================================================
+            // 1~6차시 전체 데이터 교차 분석 리포트 생성기 (자연스러운 종합 서술문)
+            // ========================================================================
+            const comprehensiveAnalysis = useMemo(() => {
+                const profileName = myCareerProfile ? myCareerProfile.name : '자기주도적 탐구자';
+                const strengthsText = myCareerProfile ? myCareerProfile.strengths[0] : '문제 해결력과 소통 능력';
+                const currentCase = DILEMMA_CASES.find(c => c.id === data.step3.caseId) || DILEMMA_CASES[0];
+                const linkedSubj = data.step3.linkedSubjects.length > 0 ? data.step3.linkedSubjects.join(', ') : '공통 교과';
+                const grade2Subj = data.step6.selectedGrade2Subjects.length > 0
+                    ? data.step6.selectedGrade2Subjects.join(', ')
+                    : (myCareerProfile ? myCareerProfile.grade2Subjects.slice(0, 3).join(', ') : '진로 연계 선택과목');
+
+                // 1. 진로 정체성 및 동기 융합 분석
+                const identityAnalysis = `${studentName || '학생'}님은 진로 성향 진단 결과 '${profileName}'의 특성을 보이며, 특히 '${strengthsText}'에서 뛰어난 잠재력을 지니고 있습니다. 일상 속 경험(${data.step1.wsExperience || '교내 활동 및 모둠 협력 경험'})을 바탕으로 '${myTargetJob}' 분야에 구체적인 관심을 형성하였으며, 장차 '${data.step1.wsValue || '타인과 사회에 긍정적인 영향력을 전하는 전문가'}'로 성장하고자 하는 뚜렷한 가치관을 확립하고 있습니다.`;
+
+                // 2. 직무 역량 및 교과 연계 탐구 역량 분석
+                const academicAnalysis = `가상 멘토링 및 직무 분석을 통해 '${myTargetJob}' 직무의 핵심 업무(${data.step2.noteCoreWork || '현장 문제 진단 및 전문 솔루션 기획'})와 필수 역량(${data.step2.noteCompetency || '기초 문해력 및 공감적 소통 역량'})을 심층적으로 파악했습니다. 특히 '${currentCase.title}'라는 시사·윤리적 딜레마 상황에서 ${linkedSubj} 교과의 개념을 융합하여(${data.step3.subjectConnection || '교과 원리를 실생활 진로 이슈에 적용'}), '${data.step3.mySolution || '기술의 효율성과 인간 중심의 윤리적 가치를 조화시키는 대안'}'을 도출하는 우수한 비판적 사고력과 교과 응용력을 보여주었습니다.`;
+
+                // 3. 실천적 문제해결 및 협업 성장 분석
+                const projectAnalysis = `나아가 진로 역량을 학교와 지역사회로 확장하여 '${data.step4.projectTitle || '청소년 일상 문제 해결 프로젝트'}'를 자기주도적으로 기획했습니다. ${data.step4.targetAudience || '학우들'}이 겪는 문제(${data.step4.problemBackground || '일상 속 불편함과 제도적 한계'})를 해결하기 위해 '${data.step4.coreIdea || '전공 관심사와 연계한 맞춤형 캠페인 및 솔루션'}'을 설계하고 단계별 실행 계획을 수립했습니다. 이후 동료(${data.step5.peerName || '모둠원'})와의 상호 피드백 과정에서 제기된 조언(${data.step5.peerQuestion || '실현 가능성 및 참여 유도 방안'})을 적극 수용하여 '${data.step5.myFinalRevision || '구체적인 실행 절차를 보완한 최종 기획안'}'으로 고도화하며 유연한 소통 및 협업 능력을 입증했습니다.`;
+
+                // 4. 향후 학업 설계 및 성장 방향 제언
+                const futureRoadmap = `1~5차시 탐구 결과를 종합할 때, 향후 2학년 과정에서 [${grade2Subj}] 등의 과목을 이수하며 기초 학업 역량을 심화하는 것이 큰 도움이 됩니다. 1학년 계획(${data.step6.roadmapGrade1 || '기초 교양 독서 및 교과 탐구 습관 형성'})을 시작으로 2~3학년 심화 탐구(${data.step6.roadmapGrade2 || '선택과목 연계 심층 보고서 작성 및 동아리 프로젝트 확장'})로 이어지는 체계적인 로드맵을 수립하였으며, 과정 전반에서 보여준 자기성찰 태도(${data.step6.finalReflection || '주도적인 진로 탐색 의지'})를 바탕으로 지속적인 성장이 기대됩니다.`;
+
+                return {
+                    identityAnalysis,
+                    academicAnalysis,
+                    projectAnalysis,
+                    futureRoadmap,
+                    fullIntegratedParagraph: `${identityAnalysis} ${academicAnalysis} ${projectAnalysis} ${futureRoadmap}`
+                };
+            }, [data, myCareerProfile, myTargetJob, studentName]);
+
+            // ========================================================================
+            // 6차시: PDF 파일(.pdf) 직접 다운로드 함수 (html2pdf 활용 + 인쇄 폴백)
+            // ========================================================================
+            const downloadPdfDocument = async () => {
+                const element = document.getElementById('printable-report-area');
+                if (!element) return;
+
+                if (window.html2pdf) {
+                    try {
+                        setIsGeneratingPdf(true);
+                        showToast('⏳ PDF 보고서 파일을 생성하고 있습니다. 잠시만 기다려주세요...');
+                        const opt = {
+                            margin: [10, 10, 10, 10],
+                            filename: `진로심화탐구보고서_${studentId || '학번'}_${studentName || '이름'}.pdf`,
+                            image: { type: 'jpeg', quality: 0.98 },
+                            html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                        };
+                        await window.html2pdf().set(opt).from(element).save();
+                        showToast('📕 PDF 보고서 파일이 다운로드되었습니다!');
+                    } catch (err) {
+                        console.warn('PDF export fallback to print:', err);
+                        window.print();
+                    } finally {
+                        setIsGeneratingPdf(false);
+                    }
+                } else {
+                    window.print();
+                }
+            };
+
+            // ========================================================================
+            // 6차시: 워드(.doc) 보고서 파일 다운로드 함수
+            // ========================================================================
+            const downloadWordDocument = () => {
+                const currentCase = DILEMMA_CASES.find(c => c.id === data.step3.caseId) || DILEMMA_CASES[0];
+                const profileTitle = myCareerProfile ? `${myCareerProfile.name} (${myCareerProfile.badge})` : '자기주도적 진로 탐구자';
+                const recommendedSubjs = myCareerProfile ? myCareerProfile.grade2Subjects.join(', ') : '-';
+
+                const htmlDoc = `
+                    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                    <head><meta charset='utf-8'><title>고등학교 1학년 진로 심화 탐구 보고서</title></head>
+                    <body style="font-family: 'Malgun Gothic', sans-serif; line-height: 1.65; color: #1e293b; padding: 20px;">
+                        <h1 style="text-align:center; color:#4338ca; border-bottom:3px solid #4338ca; padding-bottom:10px;">
+                            🎓 고등학교 1학년 진로 심화 탐구 종합 보고서
+                        </h1>
+                        <p style="text-align:right; font-size:11pt; margin-bottom:20px;">
+                            <strong>학번:</strong> ${studentId || '미입력'} &nbsp;|&nbsp;
+                            <strong>이름:</strong> ${studentName || '미입력'} &nbsp;|&nbsp;
+                            <strong>희망 진로 분야:</strong> ${myTargetJob}
+                        </p>
+
+                        <div style="background:#f8fafc; border:2px solid #6366f1; padding:16px; border-radius:10px; margin-bottom:24px;">
+                            <h2 style="color:#312e81; margin-top:0; font-size:13pt;">📊 [종합 분석] 1~6차시 진로 탐구 역량 및 성장 방향 리포트</h2>
+                            <p style="font-size:10.5pt; text-align:justify;"><strong>1) 진로 정체성 및 동기 분석:</strong> ${comprehensiveAnalysis.identityAnalysis}</p>
+                            <p style="font-size:10.5pt; text-align:justify;"><strong>2) 직무 이해 및 교과 융합 분석:</strong> ${comprehensiveAnalysis.academicAnalysis}</p>
+                            <p style="font-size:10.5pt; text-align:justify;"><strong>3) 실천적 문제해결 및 협업 분석:</strong> ${comprehensiveAnalysis.projectAnalysis}</p>
+                            <p style="font-size:10.5pt; text-align:justify; margin-bottom:0;"><strong>4) 향후 학업 설계 종합 의견:</strong> ${comprehensiveAnalysis.futureRoadmap}</p>
+                        </div>
+
+                        <h2 style="background:#eef2ff; color:#312e81; padding:8px 12px; border-left:5px solid #4f46e5; font-size:13pt;">
+                            1. 나의 진로 강점 진단 및 탐색 동기 (1차시)
+                        </h2>
+                        <p><strong>• 진단된 나의 강점 유형:</strong> ${profileTitle}</p>
+                        <p><strong>• 중점 탐색 직업/분야:</strong> ${myTargetJob}</p>
+                        <p><strong>• 나의 일상 속 강점 발휘 경험:</strong><br/>${data.step1.wsExperience || '-'}</p>
+                        <p><strong>• 해당 진로 분야에 관심을 갖게 된 계기:</strong><br/>${data.step1.wsReason || '-'}</p>
+                        <p><strong>• 진로를 통해 사회에서 이루고 싶은 가치:</strong><br/>${data.step1.wsValue || '-'}</p>
+
+                        <h2 style="background:#eef2ff; color:#312e81; padding:8px 12px; border-left:5px solid #4f46e5; font-size:13pt; margin-top:24px;">
+                            2. 2036년 미래 전문가 멘토링 심층 분석 (2차시)
+                        </h2>
+                        <p><strong>• 미래 현장의 핵심 업무와 직무의 매력:</strong><br/>${data.step2.noteCoreWork || '-'}</p>
+                        <p><strong>• 인공지능 시대에 요구되는 핵심 역량과 태도:</strong><br/>${data.step2.noteCompetency || '-'}</p>
+                        <p><strong>• 고등학교 1학년 시기에 준비해야 할 학업 및 경험:</strong><br/>${data.step2.noteHighSchool || '-'}</p>
+
+                        <h2 style="background:#eef2ff; color:#312e81; padding:8px 12px; border-left:5px solid #4f46e5; font-size:13pt; margin-top:24px;">
+                            3. 교과 연계 진로 윤리 및 시사 딜레마 탐구 (3차시)
+                        </h2>
+                        <p><strong>• 탐구 주제:</strong> ${currentCase.title}</p>
+                        <p><strong>• 나의 입장 선택:</strong> ${data.step3.stance || '-'}</p>
+                        <p><strong>• 연계한 고1 교과목:</strong> ${data.step3.linkedSubjects.join(', ') || '-'}</p>
+                        <p><strong>• 교과 지식과 연결한 문제 분석:</strong><br/>${data.step3.subjectConnection || '-'}</p>
+                        <p><strong>• 나만의 창의적 해결 방안 및 윤리적 기준:</strong><br/>${data.step3.mySolution || '-'}</p>
+                        <p><strong>• 예상되는 반론과 나의 보완책:</strong><br/>${data.step3.expectedObjection || '-'}</p>
+
+                        <h2 style="background:#eef2ff; color:#312e81; padding:8px 12px; border-left:5px solid #4f46e5; font-size:13pt; margin-top:24px;">
+                            4. 우리 학교·사회를 바꾸는 진로 미니 프로젝트 기획서 (4차시)
+                        </h2>
+                        <p><strong>• 프로젝트명:</strong> ${data.step4.projectTitle || '-'}</p>
+                        <p><strong>• 문제 발견 배경 및 원인 분석:</strong><br/>${data.step4.problemBackground || '-'}</p>
+                        <p><strong>• 정책/캠페인 대상:</strong> ${data.step4.targetAudience || '-'}</p>
+                        <p><strong>• 진로 역량을 활용한 핵심 아이디어:</strong><br/>${data.step4.coreIdea || '-'}</p>
+                        <p><strong>• 단계별 실행 계획:</strong><br/>
+                           - [1단계 조사/준비] ${data.step4.actionStep1 || '-'}<br/>
+                           - [2단계 제작/실행] ${data.step4.actionStep2 || '-'}<br/>
+                           - [3단계 공유/확산] ${data.step4.actionStep3 || '-'}
+                        </p>
+                        <p><strong>• 기대 효과:</strong><br/>${data.step4.expectedEffect || '-'}</p>
+
+                        <h2 style="background:#eef2ff; color:#312e81; padding:8px 12px; border-left:5px solid #4f46e5; font-size:13pt; margin-top:24px;">
+                            5. 동료 피드백 교류 및 기획안 고도화 (5차시)
+                        </h2>
+                        <p><strong>• 상호 피드백 파트너:</strong> ${data.step5.peerName || '-'}</p>
+                        <p><strong>• 동료에게 인정받은 기획의 강점:</strong><br/>${data.step5.peerPraise || '-'}</p>
+                        <p><strong>• 동료의 질문 및 보완 조언:</strong><br/>${data.step5.peerQuestion || '-'}</p>
+                        <p><strong>• 피드백을 수용하여 개선한 최종 기획안(Revision):</strong><br/>${data.step5.myFinalRevision || '-'}</p>
+                        <p><strong>• 협업 및 소통 과정에서 배운 점:</strong><br/>${data.step5.collaborationLesson || '-'}</p>
+
+                        <h2 style="background:#eef2ff; color:#312e81; padding:8px 12px; border-left:5px solid #4f46e5; font-size:13pt; margin-top:24px;">
+                            6. 맞춤형 진로 로드맵 설계 및 최종 성찰 (6차시)
+                        </h2>
+                        <p><strong>• 유형별 추천 선택과목 가이드:</strong> ${recommendedSubjs}</p>
+                        <p><strong>• 내가 선택한 2학년 중점 이수 희망 과목:</strong> ${data.step6.selectedGrade2Subjects.join(', ') || '-'}</p>
+                        <p><strong>• 고등학교 3개년 성장 로드맵:</strong><br/>
+                           - [1학년 계획] ${data.step6.roadmapGrade1 || '-'}<br/>
+                           - [2학년 계획] ${data.step6.roadmapGrade2 || '-'}<br/>
+                           - [3학년 계획] ${data.step6.roadmapGrade3 || '-'}
+                        </p>
+                        <p><strong>• 6차시 진로 탐구 여정을 마치며 (최종 소감문):</strong><br/>${data.step6.finalReflection || '-'}</p>
+                    </body>
+                    </html>
+                `;
+
+                const blob = new Blob(['\ufeff', htmlDoc], { type: 'application/msword' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `진로심화탐구보고서_${studentId || '학번'}_${studentName || '이름'}.doc`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('📄 워드(.doc) 보고서 파일이 다운로드되었습니다!');
+            };
+
+            const steps = [
+                { id: 1, title: "1차시: 흥미·강점 심층 진단", sub: "8문항 진단 & 경험 탐구" },
+                { id: 2, title: "2차시: 2036 미래 멘토링", sub: "5단계 인터뷰 & 직무 분석" },
+                { id: 3, title: "3차시: 교과 연계 딜레마", sub: "시사 독해 & 윤리 에세이" },
+                { id: 4, title: "4차시: 사회문제 프로젝트", sub: "5W1H 액션플랜 기획서" },
+                { id: 5, title: "5차시: 동료 평가 & 리비전", sub: "루브릭 피드백 & 고도화" },
+                { id: 6, title: "6차시: 맞춤형 진로 로드맵", sub: "방향 가이드 & 최종 보고서" }
+            ];
+
+            const currentCaseObj = DILEMMA_CASES.find(c => c.id === data.step3.caseId) || DILEMMA_CASES[0];
+
+            return (
+                <div className="max-w-5xl mx-auto px-4 py-6">
+                    {/* 상단 토스트 메시지 */}
+                    {toast && (
+                        <div className="fixed bottom-6 right-6 z-50 bg-indigo-950 text-white px-5 py-3.5 rounded-2xl shadow-2xl text-xs md:text-sm font-bold flex items-center gap-2 no-print">
+                            <span>✨ {toast}</span>
+                        </div>
+                    )}
+
+                    {/* ====================================================================
+                        상단 헤더 (학번/이름/진행률)
+                    ==================================================================== */}
+                    <header className="bg-white/95 backdrop-blur rounded-3xl p-5 md:p-6 shadow-sm border border-purple-100 mb-5 no-print">
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            <div className="flex items-center gap-3.5">
+                                <button
+                                    onClick={() => {
+                                        const list = ['🐰', '🦊', '🐱', '🐶', '🐼', '🐨', '🦄', '🐥', '🦋', '🍀', '⭐', '🎨'];
+                                        setAvatar(list[(list.indexOf(avatar) + 1) % list.length]);
+                                    }}
+                                    className="text-3xl md:text-4xl p-2.5 bg-gradient-to-br from-pink-100 to-purple-100 rounded-2xl hover:scale-105 transition shadow-sm border border-purple-200/60"
+                                    title="클릭하여 아이콘 변경"
+                                >
+                                    {avatar}
+                                </button>
+                                <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h1 className="text-lg md:text-2xl font-black bg-gradient-to-r from-purple-700 via-indigo-700 to-pink-600 bg-clip-text text-transparent">
+                                            고등학교 1학년 진로 심화 탐구 워크북
+                                        </h1>
+                                        {myCareerProfile && (
+                                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-purple-100 text-purple-800">
+                                                {myCareerProfile.badge}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-0.5">
+                                        매 차시 50분 심층 탐구를 통해 나만의 진로 방향과 학생부 포트폴리오 보고서를 완성합니다.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                                <input
+                                    type="text"
+                                    placeholder="학번 (예: 10101)"
+                                    value={studentId}
+                                    onChange={(e) => setStudentId(e.target.value)}
+                                    className="w-28 px-3 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-400 outline-none bg-purple-50/40"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="이름 (예: 김서연)"
+                                    value={studentName}
+                                    onChange={(e) => setStudentName(e.target.value)}
+                                    className="w-28 px-3 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-purple-400 outline-none bg-purple-50/40"
+                                />
+                                <span className="text-[11px] font-extrabold text-indigo-700 bg-indigo-50 px-3 py-2 rounded-xl border border-indigo-100">
+                                    {statusMsg}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* 차시 선택 탭 & 차시별 달성률 바 */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-5 pt-4 border-t border-slate-100">
+                            {steps.map(s => {
+                                const pct = stepProgress[s.id] || 0;
+                                const active = currentStep === s.id;
+                                return (
+                                    <button
+                                        key={s.id}
+                                        onClick={() => setCurrentStep(s.id)}
+                                        className={`p-3 rounded-2xl text-left transition-all border relative overflow-hidden ${
+                                            active
+                                                ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white border-transparent shadow-md scale-[1.01]'
+                                                : 'bg-slate-50/80 hover:bg-white text-slate-700 border-slate-200'
+                                        }`}
+                                    >
+                                        <div className="flex justify-between items-center text-[10px] font-extrabold mb-0.5">
+                                            <span className={active ? 'text-purple-100' : 'text-purple-600'}>{s.id}차시 (50분)</span>
+                                            <span className={`px-1.5 py-0.2 rounded-full ${active ? 'bg-white/20 text-white' : pct === 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                                                {pct}%
+                                            </span>
+                                        </div>
+                                        <div className="text-xs font-black truncate">{s.title.split(': ')[1]}</div>
+                                        <div className={`text-[10px] truncate mt-0.5 ${active ? 'text-purple-100' : 'text-slate-400'}`}>{s.sub}</div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </header>
+
+                    {/* ====================================================================
+                        메인 차시별 워크북 영역
+                    ==================================================================== */}
+                    <main className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-purple-100">
+                        
+                        {/* 차시 공통 수업 안내 배너 */}
+                        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+                            <div className="flex items-center gap-3">
+                                <span className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-black shrink-0">
+                                    {currentStep}차시 수업 달성도 {stepProgress[currentStep]}%
+                                </span>
+                                <p className="text-xs text-slate-600 font-medium">
+                                    {currentStep === 1 && '💡 [50분 활동] ① 8문항 진단(10분) ➔ ② 나의 강점 유형·추천 직업 탐색(15분) ➔ ③ 심층 경험 워크시트 3문항 작성(25분)'}
+                                    {currentStep === 2 && '💡 [50분 활동] ① 2036년 미래의 나와 5단계 심층 인터뷰 진행(20분) ➔ ② 직무 분석 및 고1 준비 노트 3문항 정리(30분)'}
+                                    {currentStep === 3 && '💡 [50분 활동] ① 진로 분야별 시사 딜레마 읽기 자료 독해(15분) ➔ ② 고1 교과목 연계 분석 및 해결 에세이 작성(35분)'}
+                                    {currentStep === 4 && '💡 [50분 활동] ① 학교/지역사회 문제 발견(15분) ➔ ② 진로 역량을 활용한 3단계 실행 프로젝트 기획서 작성(35분)'}
+                                    {currentStep === 5 && '💡 [50분 활동] ① 짝꿍과 기획안 발표 및 4대 영역 루브릭 평가(20분) ➔ ② 친구의 질문을 반영해 최종 기획안 업그레이드(30분)'}
+                                    {currentStep === 6 && '💡 [50분 활동] ① 1~5차시 종합 분석 및 2학년 선택과목 가이드 확인(15분) ➔ ② 3개년 로드맵 완성 및 보고서 파일 저장(35분)'}
+                                </p>
+                            </div>
+                            <div className="w-full sm:w-32 bg-white h-2.5 rounded-full overflow-hidden border border-indigo-200 shrink-0">
+                                <div className="bg-gradient-to-r from-purple-600 to-pink-500 h-full transition-all duration-500" style={{ width: `${stepProgress[currentStep]}%` }} />
+                            </div>
+                        </div>
+
+                        {/* ================================================================
+                            [1차시] 나의 흥미·강점 심층 진단 & 경험 워크시트 (50분 구성)
+                        ================================================================ */}
+                        {currentStep === 1 && (
+                            <div className="space-y-8">
+                                {/* 활동 1-1: 8문항 정밀 진단 */}
+                                <section className="space-y-4">
+                                    <div className="border-b pb-3">
+                                        <span className="text-xs font-black text-purple-600">ACTIVITY 1-1 (소요시간: 10분)</span>
+                                        <h2 className="text-xl font-black text-slate-800 mt-0.5">나의 진로 성향 & 강점 발견 8문항 진단</h2>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            아직 구체적인 꿈이 없어도 괜찮습니다! 일상 속 나의 모습과 가장 가까운 선택지를 8문항 모두 골라보세요.
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {STEP1_QUESTIONS.map((item) => {
+                                            const selectedVal = data.step1.answers?.[item.id];
+                                            return (
+                                                <div key={item.id} className="p-4 rounded-2xl bg-slate-50/90 border border-slate-200/80 space-y-2.5">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700">
+                                                            {item.category}
+                                                        </span>
+                                                        {selectedVal && <span className="text-[11px] font-bold text-emerald-600">선택 완료 ✓</span>}
+                                                    </div>
+                                                    <p className="text-xs md:text-sm font-extrabold text-slate-800">{item.question}</p>
+                                                    <div className="space-y-2 pt-1">
+                                                        {item.options.map((opt, idx) => {
+                                                            const isPicked = selectedVal === opt.code;
+                                                            return (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => {
+                                                                        const nextAns = { ...(data.step1.answers || {}), [item.id]: opt.code };
+                                                                        updateStepField('step1', 'answers', nextAns);
+                                                                    }}
+                                                                    className={`w-full p-3 rounded-xl border text-left text-xs transition flex flex-col gap-0.5 ${
+                                                                        isPicked
+                                                                            ? 'bg-purple-600 text-white border-purple-600 shadow-sm font-bold'
+                                                                            : 'bg-white hover:bg-purple-50/60 text-slate-700 border-slate-200 font-semibold'
+                                                                    }`}
+                                                                >
+                                                                    <span>{opt.label}</span>
+                                                                    <span className={`text-[10px] ${isPicked ? 'text-purple-200' : 'text-slate-400'}`}>
+                                                                        • {opt.desc}
+                                                                    </span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+
+                                {/* 활동 1-2: 진단 결과 분석 리포트 및 탐색 직업 선택 */}
+                                <section className="space-y-4 pt-4 border-t">
+                                    <div>
+                                        <span className="text-xs font-black text-indigo-600">ACTIVITY 1-2 (소요시간: 15분)</span>
+                                        <h3 className="text-lg font-black text-slate-800 mt-0.5">나의 진로 강점 유형 분석 & 탐색 분야 선정</h3>
+                                    </div>
+
+                                    {!myCareerProfile ? (
+                                        <div className="p-6 rounded-2xl bg-amber-50 border border-amber-200 text-center space-y-1">
+                                            <p className="text-sm font-extrabold text-amber-900">
+                                                👆 위의 8개 문항을 모두 선택하면 나만의 진로 강점 유형 분석표와 추천 직업군이 나타납니다!
+                                            </p>
+                                            <p className="text-xs text-amber-700">
+                                                현재 {Object.keys(data.step1.answers || {}).length} / 8 문항 선택 완료
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 text-white space-y-5 shadow-lg">
+                                            <div className="flex flex-col md:flex-row justify-between md:items-center gap-3 border-b border-white/15 pb-4">
+                                                <div>
+                                                    <span className="px-3 py-1 rounded-full bg-pink-500/30 border border-pink-300/30 text-pink-200 text-xs font-black">
+                                                        {myCareerProfile.badge}
+                                                    </span>
+                                                    <h4 className="text-xl md:text-2xl font-black mt-2">{myCareerProfile.name}</h4>
+                                                    <p className="text-xs md:text-sm text-indigo-100 mt-1 leading-relaxed">
+                                                        {myCareerProfile.summary}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                                <div className="bg-white/10 p-4 rounded-2xl space-y-1.5">
+                                                    <p className="font-black text-pink-300">✨ 나의 3대 핵심 강점</p>
+                                                    <ul className="space-y-1 text-indigo-100">
+                                                        {myCareerProfile.strengths.map((st, i) => (
+                                                            <li key={i}>• {st}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                                <div className="bg-white/10 p-4 rounded-2xl space-y-2">
+                                                    <p className="font-black text-amber-300">🎯 이 강점이 빛을 발하는 추천 진로 분야 (클릭해서 선택)</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {myCareerProfile.recommendedFields.map((field, i) => (
+                                                            <button
+                                                                key={i}
+                                                                onClick={() => updateStepField('step1', 'selectedJob', field)}
+                                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                                                                    data.step1.selectedJob === field
+                                                                        ? 'bg-amber-400 text-slate-950 shadow'
+                                                                        : 'bg-white/15 hover:bg-white/25 text-white'
+                                                                }`}
+                                                            >
+                                                                {data.step1.selectedJob === field ? `✓ ${field}` : field}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-white/10 p-4 rounded-2xl space-y-2">
+                                                <label className="block text-xs font-black text-indigo-200">
+                                                    📌 이번 6차시 동안 내가 집중 탐구할 희망 진로(직업 또는 관심 분야) 직접 적어보기
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="위 추천 버튼을 누르거나, 내가 원래 꿈꾸던 직업/분야를 직접 입력하세요 (예: 간호사, 인공지능 개발자, 미디어 PD 등)"
+                                                    value={data.step1.customJob || data.step1.selectedJob || ''}
+                                                    onChange={(e) => updateStepField('step1', 'customJob', e.target.value)}
+                                                    className="w-full p-3 rounded-xl text-slate-900 bg-white text-xs md:text-sm font-bold outline-none focus:ring-2 focus:ring-amber-400"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </section>
+
+                                {/* 활동 1-3: 50분 심층 자기이해 워크시트 (3문항 서술) */}
+                                <section className="space-y-4 pt-4 border-t">
+                                    <div>
+                                        <span className="text-xs font-black text-pink-600">ACTIVITY 1-3 (소요시간: 25분)</span>
+                                        <h3 className="text-lg font-black text-slate-800 mt-0.5">나의 경험과 진로 가치관 심층 워크시트</h3>
+                                        <p className="text-xs text-slate-500 mt-0.5">
+                                            단순히 직업 이름만 적는 것이 아니라, 나의 과거 경험과 미래의 가치를 구체적인 문장으로 연결해 작성해보세요. (각 항목 2~3문장 이상 권장)
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-xs md:text-sm font-extrabold text-purple-950">
+                                                    1) [나의 강점 경험] 학교생활이나 일상에서 나의 강점(소통, 분석, 배려, 창의성 등)이 발휘되어 뿌듯했던 구체적인 경험을 적어보세요.
+                                                </label>
+                                                <span className="text-[11px] font-bold text-purple-600 shrink-0">{data.step1.wsExperience.length}자</span>
+                                            </div>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 중학교 축제나 학급 모둠 과제를 할 때 의견이 갈리는 친구들의 이야기를 끝까지 들어주고 역할을 조율하여 성공적으로 발표를 마쳤을 때 큰 보람을 느꼈다."
+                                                value={data.step1.wsExperience}
+                                                onChange={(e) => updateStepField('step1', 'wsExperience', e.target.value)}
+                                                className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-purple-400 leading-relaxed"
+                                            />
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-xs md:text-sm font-extrabold text-purple-950">
+                                                    2) [관심 계기와 호기심] 내가 선택한 진로 분야({myTargetJob})에 관심을 갖게 된 계기나, 이 분야에서 가장 알아보고 싶은 점은 무엇인가요?
+                                                </label>
+                                                <span className="text-[11px] font-bold text-purple-600 shrink-0">{data.step1.wsReason.length}자</span>
+                                            </div>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 평소 관련 책이나 영상을 접하며 이 분야가 사람들의 삶에 미치는 영향력에 감명을 받았고, 실제로 현장에서 어떤 전문 지식을 활용해 문제를 해결하는지 깊이 탐구해보고 싶다."
+                                                value={data.step1.wsReason}
+                                                onChange={(e) => updateStepField('step1', 'wsReason', e.target.value)}
+                                                className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-purple-400 leading-relaxed"
+                                            />
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-xs md:text-sm font-extrabold text-purple-950">
+                                                    3) [추구하는 사회적 가치] 먼 훗날 이 분야의 전문가가 되었을 때, 나는 세상에 어떤 도움을 주는 사람이 되고 싶은가요?
+                                                </label>
+                                                <span className="text-[11px] font-bold text-purple-600 shrink-0">{data.step1.wsValue.length}자</span>
+                                            </div>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 단순히 내 일만 잘하는 것을 넘어, 소외되거나 어려움을 겪는 사람들의 목소리에 귀를 기울이고 따뜻하고 실용적인 해결책을 선물하는 전문가로 성장하고 싶다."
+                                                value={data.step1.wsValue}
+                                                onChange={(e) => updateStepField('step1', 'wsValue', e.target.value)}
+                                                className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-purple-400 leading-relaxed"
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {/* ================================================================
+                            [2차시] 2036년 미래의 나 5단계 심층 멘토링 & 직무 분석 노트 (50분)
+                        ================================================================ */}
+                        {currentStep === 2 && (
+                            <div className="space-y-8">
+                                <section className="space-y-4">
+                                    <div className="border-b pb-3">
+                                        <span className="text-xs font-black text-indigo-600">ACTIVITY 2-1 (소요시간: 20분)</span>
+                                        <h2 className="text-xl font-black text-slate-800 mt-0.5">
+                                            2036년 ‘{myTargetJob}’ 전문가가 된 나와의 5단계 심층 인터뷰
+                                        </h2>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            아래 **[추천 인터뷰 질문 버튼 1~5단계]**를 순서대로 클릭하거나 직접 질문을 입력해 10년 뒤의 나와 대화를 나누어 보세요!
+                                        </p>
+                                    </div>
+
+                                    {/* 추천 질문 원클릭 버튼들 */}
+                                    <div className="bg-indigo-50/70 p-4 rounded-2xl border border-indigo-100 space-y-2">
+                                        <p className="text-xs font-extrabold text-indigo-900">
+                                            💬 단계별 인터뷰 질문 가이드 (버튼을 누르면 바로 질문이 전송됩니다)
+                                        </p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {INTERVIEW_PROMPTS.map((p) => {
+                                                const done = (data.step2.scenarioIdx || 0) >= p.step;
+                                                return (
+                                                    <button
+                                                        key={p.step}
+                                                        onClick={() => handleSendInterviewMessage(p.sampleQuestion)}
+                                                        className={`p-2.5 rounded-xl text-left text-xs font-bold border transition flex items-center justify-between ${
+                                                            done
+                                                                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                                                : 'bg-white hover:bg-indigo-600 hover:text-white border-indigo-200 text-indigo-900 shadow-sm'
+                                                        }`}
+                                                    >
+                                                        <span className="truncate">{p.btnText}</span>
+                                                        <span className="text-[10px] ml-2 shrink-0">{done ? '완료 ✓' : '질문하기 ➔'}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* 채팅창 */}
+                                    <div className="bg-slate-100 p-4 md:p-5 rounded-3xl h-80 overflow-y-auto space-y-3.5 border border-slate-200">
+                                        {(data.step2.chatHistory || []).map((msg, idx) => (
+                                            <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                                                <span className="text-[10px] font-bold text-slate-400 mb-1 px-1">
+                                                    {msg.sender === 'user' ? `고1 ${studentName || '나'}의 질문` : `2036년의 나 (${myTargetJob}) · ${msg.topic || '답변'}`}
+                                                </span>
+                                                <div className={`p-3.5 rounded-2xl text-xs md:text-sm max-w-2xl leading-relaxed shadow-sm ${
+                                                    msg.sender === 'user'
+                                                        ? 'bg-indigo-600 text-white rounded-tr-none font-semibold'
+                                                        : 'bg-white text-slate-800 rounded-tl-none border border-slate-200/80'
+                                                }`}>
+                                                    {msg.text}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* 직접 질문 입력창 */}
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="더 궁금한 점을 자유롭게 입력하고 엔터 또는 전송을 눌러보세요!"
+                                            value={data.step2.userInput || ''}
+                                            onChange={(e) => updateStepField('step2', 'userInput', e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSendInterviewMessage();
+                                            }}
+                                            className="flex-1 px-4 py-3 border border-slate-300 rounded-xl text-xs md:text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                        <button
+                                            onClick={() => handleSendInterviewMessage()}
+                                            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs md:text-sm font-black shadow-md transition shrink-0"
+                                        >
+                                            질문 전송
+                                        </button>
+                                    </div>
+                                </section>
+
+                                {/* 활동 2-2: 인터뷰 핵심 요약 및 직무 심층 조사 워크시트 (30분) */}
+                                <section className="space-y-4 pt-4 border-t">
+                                    <div>
+                                        <span className="text-xs font-black text-purple-600">ACTIVITY 2-2 (소요시간: 30분)</span>
+                                        <h3 className="text-lg font-black text-slate-800 mt-0.5">인터뷰 핵심 정리 & 직무 심층 조사 노트</h3>
+                                        <p className="text-xs text-slate-500 mt-0.5">
+                                            미래의 나와 나눈 대화와 인터넷 직무 정보(커리어넷, 워크넷 등)를 함께 참고하여 나만의 언어로 꼼꼼히 정리해보세요.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-2">
+                                            <label className="block text-xs md:text-sm font-extrabold text-indigo-950">
+                                                1) [핵심 업무와 직무의 매력] ‘{myTargetJob}’ 분야에서 실제로 수행하는 구체적인 일은 무엇이며, 내가 느낀 가장 큰 매력은 무엇인가요?
+                                            </label>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 대상자의 문제를 진단하고 맞춤형 해결 프로그램이나 시스템을 설계하는 일을 한다. 내 전문성으로 누군가의 삶에 실질적인 변화를 만든다는 점이 가장 매력적이다."
+                                                value={data.step2.noteCoreWork}
+                                                onChange={(e) => updateStepField('step2', 'noteCoreWork', e.target.value)}
+                                                className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-400 leading-relaxed"
+                                            />
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-2">
+                                            <label className="block text-xs md:text-sm font-extrabold text-indigo-950">
+                                                2) [요구 역량과 태도] 2036년 미래 환경에서도 대체되지 않는 전문가가 되기 위해 꼭 길러야 할 핵심 능력 2가지는 무엇인가요?
+                                            </label>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 첫째는 관련 과학·사회 데이터를 정확히 분석하는 문해력이고, 둘째는 다양한 분야의 사람들과 소통하며 공감대를 이끌어내는 협업 태도이다."
+                                                value={data.step2.noteCompetency}
+                                                onChange={(e) => updateStepField('step2', 'noteCompetency', e.target.value)}
+                                                className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-400 leading-relaxed"
+                                            />
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-2">
+                                            <label className="block text-xs md:text-sm font-extrabold text-indigo-950">
+                                                3) [고1 지금 당장 시작할 실천] 미래의 나의 조언을 바탕으로, 올해 학교 수업이나 동아리·독서 활동에서 내가 해보고 싶은 구체적인 목표를 적어보세요.
+                                            </label>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 이번 학기 통합사회 및 정보 수업 수행평가에서 내 희망 진로와 관련된 주제를 선정해 심층 발표를 진행하고, 관련 분야의 도서를 2권 이상 읽고 독서 기록을 남기겠다."
+                                                value={data.step2.noteHighSchool}
+                                                onChange={(e) => updateStepField('step2', 'noteHighSchool', e.target.value)}
+                                                className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-400 leading-relaxed"
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {/* ================================================================
+                            [3차시] 교과 연계 시사 딜레마 독해 & 해결 에세이 (50분)
+                        ================================================================ */}
+                        {currentStep === 3 && (
+                            <div className="space-y-8">
+                                <section className="space-y-4">
+                                    <div className="border-b pb-3">
+                                        <span className="text-xs font-black text-rose-600">ACTIVITY 3-1 (소요시간: 15분)</span>
+                                        <h2 className="text-xl font-black text-slate-800 mt-0.5">진로 분야별 시사·윤리 딜레마 사례 읽기</h2>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            내 관심 진로와 가장 가까운 분야의 사례 탭을 선택하고, 제시된 읽기 자료를 꼼꼼히 읽은 뒤 나의 입장을 선택해보세요.
+                                        </p>
+                                    </div>
+
+                                    {/* 3대 분야 사례 선택 탭 */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                                        {DILEMMA_CASES.map((c) => {
+                                            const active = data.step3.caseId === c.id;
+                                            return (
+                                                <button
+                                                    key={c.id}
+                                                    onClick={() => updateStepField('step3', 'caseId', c.id)}
+                                                    className={`p-3.5 rounded-2xl border text-left transition ${
+                                                        active
+                                                            ? 'bg-rose-600 text-white border-rose-600 shadow-md'
+                                                            : 'bg-slate-50 hover:bg-rose-50/50 text-slate-700 border-slate-200'
+                                                    }`}
+                                                >
+                                                    <div className={`text-[10px] font-black mb-1 ${active ? 'text-rose-100' : 'text-rose-600'}`}>
+                                                        {c.category}
+                                                    </div>
+                                                    <div className="text-xs font-extrabold leading-snug">{c.title}</div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* 읽기 지문 박스 */}
+                                    <div className="p-5 rounded-2xl bg-rose-50/60 border border-rose-200 space-y-4">
+                                        <div>
+                                            <span className="px-2.5 py-1 rounded-lg bg-rose-600 text-white text-[11px] font-black">
+                                                📰 심층 읽기 자료: {currentCaseObj.title}
+                                            </span>
+                                            <p className="text-xs md:text-sm text-slate-800 leading-relaxed mt-3 bg-white p-4 rounded-xl border border-rose-100 font-medium">
+                                                {currentCaseObj.readingText}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <p className="text-xs font-extrabold text-rose-950">⚖️ 두 가지 가치 중 내가 더 우선시해야 한다고 생각하는 입장은?</p>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {[currentCaseObj.questionA, currentCaseObj.questionB].map((qText, i) => {
+                                                    const picked = data.step3.stance === qText;
+                                                    return (
+                                                        <button
+                                                            key={i}
+                                                            onClick={() => updateStepField('step3', 'stance', qText)}
+                                                            className={`p-3.5 rounded-xl border text-left text-xs font-bold transition ${
+                                                                picked
+                                                                    ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                                                                    : 'bg-white hover:bg-rose-50 text-slate-700 border-rose-200'
+                                                            }`}
+                                                        >
+                                                            {picked ? `✓ [선택됨] ${qText}` : qText}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* 활동 3-2: 고1 교과목 연계 분석 및 해결 방안 에세이 (35분) */}
+                                <section className="space-y-5 pt-4 border-t">
+                                    <div>
+                                        <span className="text-xs font-black text-purple-600">ACTIVITY 3-2 (소요시간: 35분)</span>
+                                        <h3 className="text-lg font-black text-slate-800 mt-0.5">고1 교과목 개념 연결 & 딜레마 해결 에세이</h3>
+                                        <p className="text-xs text-slate-500 mt-0.5">
+                                            현재 우리가 배우고 있는 고1 교과목들을 선택하고, 수업 시간에 배운 개념을 바탕으로 이 딜레마를 해결할 아이디어를 서술해보세요.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-extrabold text-slate-700">📚 이 주제와 연결할 수 있는 고1 교과목 선택 (복수 선택 가능)</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {HIGH_SCHOOL_SUBJECTS.map(subj => {
+                                                const active = data.step3.linkedSubjects.includes(subj);
+                                                return (
+                                                    <button
+                                                        key={subj}
+                                                        onClick={() => {
+                                                            const next = active
+                                                                ? data.step3.linkedSubjects.filter(s => s !== subj)
+                                                                : [...data.step3.linkedSubjects, subj];
+                                                            updateStepField('step3', 'linkedSubjects', next);
+                                                        }}
+                                                        className={`px-3.5 py-2 rounded-xl text-xs font-extrabold border transition ${
+                                                            active
+                                                                ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                                                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-purple-50'
+                                                        }`}
+                                                    >
+                                                        {active ? `✓ ${subj}` : `+ ${subj}`}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                                            <label className="block text-xs md:text-sm font-extrabold text-slate-900">
+                                                1) [교과 지식과의 연결] 위에서 고른 교과목({data.step3.linkedSubjects.join(', ') || '선택 과목'}) 수업 시간에 배운 어떤 개념이나 원리를 이 문제와 연결할 수 있나요?
+                                            </label>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 통합사회 시간에 배운 '인권 보장과 정의로운 사회' 개념과 정보 시간에 배운 '개인정보 보호 및 디지털 윤리' 원리를 연결하여 이 문제를 분석해보았다."
+                                                value={data.step3.subjectConnection}
+                                                onChange={(e) => updateStepField('step3', 'subjectConnection', e.target.value)}
+                                                className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-rose-400 leading-relaxed"
+                                            />
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                                            <label className="block text-xs md:text-sm font-extrabold text-slate-900">
+                                                2) [나만의 해결 방안 제시] 내가 미래의 ‘{myTargetJob}’ 전문가라면, 기술의 발전(효율성)과 인간의 가치(윤리·안전)를 조화시키기 위해 어떤 구체적인 규칙이나 해결책을 만들 것인가요?
+                                            </label>
+                                            <textarea
+                                                rows="4"
+                                                placeholder="예: AI나 데이터 분석 결과를 1차 참고 자료로만 활용하고, 최종적인 의사결정과 상담 과정에는 반드시 인간 전문가가 참여하여 대상자의 상황과 감정을 확인하는 '이중 윤리 검증 제도'를 도입할 것이다."
+                                                value={data.step3.mySolution}
+                                                onChange={(e) => updateStepField('step3', 'mySolution', e.target.value)}
+                                                className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-rose-400 leading-relaxed"
+                                            />
+                                        </div>
+
+                                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                                            <label className="block text-xs md:text-sm font-extrabold text-slate-900">
+                                                3) [비판적 사고 확장] 나와 반대되는 입장을 가진 사람들은 어떤 점을 걱정할까요? 그 걱정을 덜어줄 보완책도 한 줄로 덧붙여보세요.
+                                            </label>
+                                            <textarea
+                                                rows="2"
+                                                placeholder="예: 규제가 많아지면 발전 속도가 느려진다고 걱정할 수 있으므로, 안전성이 검증된 영역부터 단계적으로 빠르게 적용하는 패스트트랙을 함께 운영한다."
+                                                value={data.step3.expectedObjection}
+                                                onChange={(e) => updateStepField('step3', 'expectedObjection', e.target.value)}
+                                                className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-rose-400 leading-relaxed"
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {/* ================================================================
+                            [4차시] 학교·사회를 바꾸는 진로 미니 프로젝트 5W1H 기획서 (50분)
+                        ================================================================ */}
+                        {currentStep === 4 && (
+                            <div className="space-y-6">
+                                <div className="border-b pb-3">
+                                    <span className="text-xs font-black text-amber-600">ACTIVITY 4 (소요시간: 50분 집중 기획)</span>
+                                    <h2 className="text-xl font-black text-slate-800 mt-0.5">
+                                        우리 학교·사회를 바꾸는 진로 미니 프로젝트 기획서
+                                    </h2>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        나의 희망 진로({myTargetJob}) 역량을 발휘해, 우리 학교 친구들이나 이웃들이 겪는 불편함을 해결하는 구체적인 프로젝트를 기획합니다.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200 space-y-1.5">
+                                        <label className="block text-xs font-extrabold text-amber-950">
+                                            📌 1. 프로젝트 제목 (한눈에 주제가 드러나는 멋진 이름)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="예: 고1 수면 부족 탈출 & 바이오리듬 회복 캠페인"
+                                            value={data.step4.projectTitle}
+                                            onChange={(e) => updateStepField('step4', 'projectTitle', e.target.value)}
+                                            className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white font-bold outline-none focus:ring-2 focus:ring-amber-400"
+                                        />
+                                    </div>
+
+                                    <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200 space-y-1.5">
+                                        <label className="block text-xs font-extrabold text-amber-950">
+                                            🎯 2. 도움을 주고 싶은 구체적인 대상 (Target)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="예: 학업 스트레스와 스마트폰 사용으로 잠이 부족한 우리 학교 1학년 학생들"
+                                            value={data.step4.targetAudience}
+                                            onChange={(e) => updateStepField('step4', 'targetAudience', e.target.value)}
+                                            className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white font-bold outline-none focus:ring-2 focus:ring-amber-400"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                                    <label className="block text-xs md:text-sm font-extrabold text-slate-900">
+                                        🔍 3. [문제 발견 배경] 왜 이 문제를 해결하고 싶나요? 평소 학교나 사회에서 관찰한 구체적인 문제 상황을 적어보세요.
+                                    </label>
+                                    <textarea
+                                        rows="3"
+                                        placeholder="예: 아침마다 피곤해하는 친구들이 많고 수업 집중도도 떨어지는 모습을 보며, 단순한 의지 문제가 아니라 청소년기 신체·심리적 특성에 맞는 환경 개선이 필요하다고 느꼈다."
+                                        value={data.step4.problemBackground}
+                                        onChange={(e) => updateStepField('step4', 'problemBackground', e.target.value)}
+                                        className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-amber-400 leading-relaxed"
+                                    />
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                                    <label className="block text-xs md:text-sm font-extrabold text-slate-900">
+                                        💡 4. [진로 연계 핵심 아이디어] 나의 관심 분야({myTargetJob}) 지식과 강점을 활용해 어떤 방식으로 문제를 해결할 것인가요?
+                                    </label>
+                                    <textarea
+                                        rows="3"
+                                        placeholder="예: 보건·생명과학 지식과 디자인 역량을 결합해, 카페인 섭취 줄이기 및 수면 위생 수칙을 알기 쉬운 인포그래픽 포스터와 7일 챌린지 체크리스트로 제작하여 배포한다."
+                                        value={data.step4.coreIdea}
+                                        onChange={(e) => updateStepField('step4', 'coreIdea', e.target.value)}
+                                        className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-amber-400 leading-relaxed"
+                                    />
+                                </div>
+
+                                <div className="p-5 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-3">
+                                    <p className="text-xs md:text-sm font-black text-indigo-950">🚀 5. [3단계 구체적 실행 계획 (Action Plan)]</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div className="bg-white p-3.5 rounded-xl border space-y-1.5">
+                                            <span className="text-[11px] font-black text-indigo-600">STEP 1. 사전 조사 및 준비</span>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 학급 친구들을 대상으로 설문조사를 실시하고 관련 논문·기사 자료를 수집한다."
+                                                value={data.step4.actionStep1}
+                                                onChange={(e) => updateStepField('step4', 'actionStep1', e.target.value)}
+                                                className="w-full p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-400"
+                                            />
+                                        </div>
+                                        <div className="bg-white p-3.5 rounded-xl border space-y-1.5">
+                                            <span className="text-[11px] font-black text-indigo-600">STEP 2. 핵심 결과물 제작/실행</span>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 카드뉴스, 프로토타입, 캠페인 보드, 가이드북 등 구체적인 결과물을 제작한다."
+                                                value={data.step4.actionStep2}
+                                                onChange={(e) => updateStepField('step4', 'actionStep2', e.target.value)}
+                                                className="w-full p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-400"
+                                            />
+                                        </div>
+                                        <div className="bg-white p-3.5 rounded-xl border space-y-1.5">
+                                            <span className="text-[11px] font-black text-indigo-600">STEP 3. 공유 및 변화 확인</span>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 학급 게시판 및 SNS에 공유하고 친구들의 실천 소감과 변화를 기록한다."
+                                                value={data.step4.actionStep3}
+                                                onChange={(e) => updateStepField('step4', 'actionStep3', e.target.value)}
+                                                className="w-full p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-400"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                                    <label className="block text-xs md:text-sm font-extrabold text-slate-900">
+                                        🌟 6. [기대 효과] 이 프로젝트가 실현되면 우리 학교나 사회에 어떤 긍정적인 변화가 생길까요?
+                                    </label>
+                                    <textarea
+                                        rows="2"
+                                        placeholder="예: 친구들이 스스로의 문제를 인식하고 건강한 습관을 형성하는 데 실질적인 도움을 줄 수 있으며, 내 진로가 사회에 기여하는 방법을 체감할 수 있다."
+                                        value={data.step4.expectedEffect}
+                                        onChange={(e) => updateStepField('step4', 'expectedEffect', e.target.value)}
+                                        className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-amber-400 leading-relaxed"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ================================================================
+                            [5차시] 동료 피드백 루브릭 & 프로젝트 고도화 리비전 (50분)
+                        ================================================================ */}
+                        {currentStep === 5 && (
+                            <div className="space-y-6">
+                                <div className="border-b pb-3">
+                                    <span className="text-xs font-black text-emerald-600">ACTIVITY 5 (소요시간: 50분 상호 멘토링)</span>
+                                    <h2 className="text-xl font-black text-slate-800 mt-0.5">
+                                        짝꿍/모둠 동료 피드백 & 나의 프로젝트 업그레이드 (Revision)
+                                    </h2>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        4차시에 기획한 나의 프로젝트를 친구에게 발표하고, 친구가 해준 칭찬과 질문을 바탕으로 내 기획안을 한 단계 더 완벽하게 발전시킵니다.
+                                    </p>
+                                </div>
+
+                                <div className="p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-black text-emerald-950">
+                                                👩‍❤️‍👩 나와 서로 기획안을 발표하고 피드백을 주고받은 친구 이름
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="친구 학번 및 이름 입력 (예: 10112 박지민)"
+                                                value={data.step5.peerName}
+                                                onChange={(e) => updateStepField('step5', 'peerName', e.target.value)}
+                                                className="w-full sm:w-72 p-2.5 border rounded-xl text-xs font-bold bg-white outline-none focus:ring-2 focus:ring-emerald-400"
+                                            />
+                                        </div>
+                                        <div className="text-xs text-emerald-800 bg-white px-3.5 py-2 rounded-xl border border-emerald-200 font-bold">
+                                            📌 내 프로젝트명: <span className="text-emerald-950">{data.step4.projectTitle || '4차시에서 제목을 입력해주세요'}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* 4대 루브릭 상호 점검표 */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 pt-2">
+                                        {[
+                                            { key: 'checkCreativity', label: '창의성 (참신한 접근)' },
+                                            { key: 'checkFeasibility', label: '실현 가능성 (구체적 실행)' },
+                                            { key: 'checkEmpathy', label: '공감도 (대상의 필요 반영)' },
+                                            { key: 'checkConnection', label: '진로 연계성 (전문성 활용)' }
+                                        ].map(item => (
+                                            <div key={item.key} className="bg-white p-3 rounded-xl border border-emerald-100 text-center space-y-1">
+                                                <div className="text-[11px] font-extrabold text-slate-700">{item.label}</div>
+                                                <div className="flex justify-center gap-1">
+                                                    {[1, 2, 3, 4, 5].map(star => (
+                                                        <button
+                                                            key={star}
+                                                            onClick={() => updateStepField('step5', item.key, star)}
+                                                            className={`text-sm ${(data.step5[item.key] || 5) >= star ? 'text-amber-400' : 'text-slate-200'}`}
+                                                        >
+                                                            ★
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                                        <label className="block text-xs md:text-sm font-extrabold text-slate-900">
+                                            1) [동료의 긍정 피드백] 친구가 내 프로젝트 기획안에서 가장 좋았다고 칭찬해 준 부분은 무엇인가요?
+                                        </label>
+                                        <textarea
+                                            rows="3"
+                                            placeholder="예: 우리 학교 친구들이 실제로 겪는 문제를 정확히 짚어냈고, 내 희망 진로 지식을 활용해 누구나 쉽게 참여할 수 있는 챌린지로 풀어낸 점이 인상적이라는 평가를 받았다."
+                                            value={data.step5.peerPraise}
+                                            onChange={(e) => updateStepField('step5', 'peerPraise', e.target.value)}
+                                            className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-400 leading-relaxed"
+                                        />
+                                    </div>
+
+                                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                                        <label className="block text-xs md:text-sm font-extrabold text-slate-900">
+                                            2) [동료의 질문 및 조언] 친구가 "이 부분은 어떻게 해결할 거야?"라고 질문했거나 더 보완하면 좋겠다고 조언해 준 내용은 무엇인가요?
+                                        </label>
+                                        <textarea
+                                            rows="3"
+                                            placeholder="예: 포스터를 붙이는 것만으로는 친구들의 지속적인 참여를 이끌어내기 어려울 수 있으니, 직접 참여할 수 있는 양방향 이벤트나 QR코드 설문을 추가해보면 어떻겠냐는 조언을 해주었다."
+                                            value={data.step5.peerQuestion}
+                                            onChange={(e) => updateStepField('step5', 'peerQuestion', e.target.value)}
+                                            className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-400 leading-relaxed"
+                                        />
+                                    </div>
+
+                                    <div className="p-4 rounded-2xl bg-emerald-50/40 border border-emerald-200 space-y-2">
+                                        <label className="block text-xs md:text-sm font-extrabold text-emerald-950">
+                                            3) [나의 기획안 최종 수정본 (Revision)] 친구의 조언을 반영하여, 기존 내 프로젝트를 어떻게 더 구체적으로 업그레이드했는지 적어보세요!
+                                        </label>
+                                        <textarea
+                                            rows="3"
+                                            placeholder="예: 친구의 피드백을 수용하여 일방적인 안내문 배포 대신, QR코드를 통해 자신의 상태를 간단히 자가진단하고 맞춤형 팁을 확인하는 인터랙티브 활동을 2단계 실행 계획에 추가하여 완성도를 높였다."
+                                            value={data.step5.myFinalRevision}
+                                            onChange={(e) => updateStepField('step5', 'myFinalRevision', e.target.value)}
+                                            className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-400 leading-relaxed"
+                                        />
+                                    </div>
+
+                                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                                        <label className="block text-xs md:text-sm font-extrabold text-slate-900">
+                                            4) [협업 성찰] 서로 다른 진로를 가진 친구와 아이디어를 나누면서 새롭게 깨달은 점을 적어보세요.
+                                        </label>
+                                        <textarea
+                                            rows="2"
+                                            placeholder="예: 혼자 고민할 때는 보이지 않던 빈틈을 친구의 다른 시각 덕분에 발견할 수 있었고, 서로 다른 진로 역량이 합쳐질 때 훨씬 더 좋은 해결책이 나온다는 것을 배웠다."
+                                            value={data.step5.collaborationLesson}
+                                            onChange={(e) => updateStepField('step5', 'collaborationLesson', e.target.value)}
+                                            className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-400 leading-relaxed"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ================================================================
+                            [6차시] 맞춤형 진로 로드맵 방향 가이드 & 최종 보고서 완성 (50분)
+                        ================================================================ */}
+                        {currentStep === 6 && (
+                            <div className="space-y-8">
+                                {/* 6-1: 진단 데이터 기반 맞춤형 진로 방향 설계도 */}
+                                <section className="space-y-4 no-print">
+                                    <div className="border-b pb-3">
+                                        <span className="text-xs font-black text-purple-600">ACTIVITY 6-1 (맞춤형 진로 방향 컨설팅 가이드)</span>
+                                        <h2 className="text-xl font-black text-slate-800 mt-0.5">
+                                            나의 1~5차시 데이터 기반 ‘고등학교 진로 성장 방향 가이드’
+                                        </h2>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            단순 답변 모음이 아니라, 내가 진단한 강점 유형과 관심 직무를 바탕으로 앞으로 고등학교에서 어떤 과목을 선택하고 어떤 활동을 심화하면 좋을지 구체적인 방향을 제시합니다.
+                                        </p>
+                                    </div>
+
+                                    <div className="p-6 rounded-3xl bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900 text-white space-y-5 shadow-lg">
+                                        <div className="flex flex-col md:flex-row justify-between md:items-center gap-3 border-b border-white/15 pb-4">
+                                            <div>
+                                                <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-xs font-black">
+                                                    🌟 {studentName || '학생'}님을 위한 맞춤형 진로 네비게이션
+                                                </span>
+                                                <h3 className="text-lg md:text-xl font-black mt-2">
+                                                    [{myCareerProfile ? myCareerProfile.name : '자기주도 탐구형'}] × [{myTargetJob}] 성장 로드맵 제안
+                                                </h3>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                            <div className="bg-white/10 p-4 rounded-2xl space-y-2.5 border border-white/10">
+                                                <p className="font-black text-amber-300 text-sm">
+                                                    📘 1. 2학년 추천 선택과목 가이드 (클릭하여 내 계획에 담기)
+                                                </p>
+                                                <p className="text-indigo-100 leading-relaxed">
+                                                    ‘{myTargetJob}’ 분야로 나아가기 위해 2~3학년 선택과목에서 아래 과목들을 우선적으로 고려해 보세요!
+                                                </p>
+                                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                                    {(myCareerProfile ? myCareerProfile.grade2Subjects : ['사회·문화', '생활과 윤리', '생명과학Ⅰ', '확률과 통계', '정보', '심리학']).map(subj => {
+                                                        const picked = data.step6.selectedGrade2Subjects.includes(subj);
+                                                        return (
+                                                            <button
+                                                                key={subj}
+                                                                onClick={() => {
+                                                                    const next = picked
+                                                                        ? data.step6.selectedGrade2Subjects.filter(s => s !== subj)
+                                                                        : [...data.step6.selectedGrade2Subjects, subj];
+                                                                    updateStepField('step6', 'selectedGrade2Subjects', next);
+                                                                }}
+                                                                className={`px-3 py-1.5 rounded-xl font-bold transition ${
+                                                                    picked
+                                                                        ? 'bg-amber-400 text-slate-950 shadow'
+                                                                        : 'bg-white/15 hover:bg-white/25 text-white'
+                                                                }`}
+                                                            >
+                                                                {picked ? `✓ ${subj}` : `+ ${subj}`}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-white/10 p-4 rounded-2xl space-y-2 border border-white/10">
+                                                <p className="font-black text-pink-300 text-sm">
+                                                    🔬 2. 맞춤형 동아리 & 심화 탐구 활동 추천
+                                                </p>
+                                                <ul className="space-y-1.5 text-indigo-100 leading-relaxed">
+                                                    {(myCareerProfile ? myCareerProfile.schoolActivities : [
+                                                        '교과 수업 시간 배운 원리를 내 관심 진로 이슈와 연결해 심화 발표하기',
+                                                        '4차시에 기획한 사회문제 해결 프로젝트를 동아리나 자율 탐구 보고서로 확장하기',
+                                                        '진로 관련 전문 도서를 학기당 2권 이상 읽고 비판적 독서 노트 작성하기'
+                                                    ]).map((act, i) => (
+                                                        <li key={i}>• {act}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* 6-2: 나의 고교 3개년 로드맵 및 최종 성찰 작성 (no-print) */}
+                                <section className="space-y-4 pt-4 border-t no-print">
+                                    <div>
+                                        <span className="text-xs font-black text-indigo-600">ACTIVITY 6-2 (나의 실행 계획 수립)</span>
+                                        <h3 className="text-lg font-black text-slate-800 mt-0.5">나의 고등학교 3개년 성장 로드맵 & 최종 소감문</h3>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-1.5">
+                                            <label className="block text-xs font-black text-purple-900">🌱 1학년: 기초 탐색 및 습관 형성 계획</label>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 공통 과목 수업에 충실히 참여하며 관심 분야의 기초 독서와 진로 신문 스크랩을 꾸준히 실천한다."
+                                                value={data.step6.roadmapGrade1}
+                                                onChange={(e) => updateStepField('step6', 'roadmapGrade1', e.target.value)}
+                                                className="w-full p-2.5 border rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-purple-400"
+                                            />
+                                        </div>
+                                        <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-1.5">
+                                            <label className="block text-xs font-black text-purple-900">🌿 2학년: 선택과목 이수 및 심화 탐구 계획</label>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 진로 관련 선택과목을 수강하고, 동아리와 수업 발표에서 4차시 기획안을 발전시킨 심층 보고서를 작성한다."
+                                                value={data.step6.roadmapGrade2}
+                                                onChange={(e) => updateStepField('step6', 'roadmapGrade2', e.target.value)}
+                                                className="w-full p-2.5 border rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-purple-400"
+                                            />
+                                        </div>
+                                        <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-1.5">
+                                            <label className="block text-xs font-black text-purple-900">🌳 3학년: 진로 역량 완성 및 진학 준비</label>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="예: 1~2학년 탐구 활동을 종합하여 나만의 진로 포트폴리오를 완성하고 구체적인 진학·진로 목표를 실현한다."
+                                                value={data.step6.roadmapGrade3}
+                                                onChange={(e) => updateStepField('step6', 'roadmapGrade3', e.target.value)}
+                                                className="w-full p-2.5 border rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-purple-400"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                                        <label className="block text-xs md:text-sm font-extrabold text-slate-900">
+                                            🌟 1~6차시 진로 탐구 여정을 마치며 느낀 점과 나의 성장 다짐 (최종 성찰문)
+                                        </label>
+                                        <textarea
+                                            rows="3"
+                                            placeholder="이번 6차시 활동을 통해 나에 대해 새롭게 발견한 점, 진로를 바라보는 시선의 변화, 앞으로의 다짐을 정성껏 작성해주세요."
+                                            value={data.step6.finalReflection}
+                                            onChange={(e) => updateStepField('step6', 'finalReflection', e.target.value)}
+                                            className="w-full p-3 border rounded-xl text-xs md:text-sm bg-white outline-none focus:ring-2 focus:ring-purple-400 leading-relaxed"
+                                        />
+                                    </div>
+
+                                    {/* 다운로드 및 PDF 저장 버튼 */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                        <button
+                                            onClick={downloadPdfDocument}
+                                            disabled={isGeneratingPdf}
+                                            className="py-4 px-6 bg-gradient-to-r from-rose-600 to-pink-600 text-white rounded-2xl font-black text-xs md:text-sm shadow-lg hover:opacity-95 transition flex items-center justify-center gap-2"
+                                        >
+                                            <span>{isGeneratingPdf ? '⏳ PDF 파일 생성 중...' : '📕 최종 진로 탐구 보고서(.pdf 파일) 바로 다운로드'}</span>
+                                        </button>
+                                        <button
+                                            onClick={downloadWordDocument}
+                                            className="py-4 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-black text-xs md:text-sm shadow-lg hover:opacity-95 transition flex items-center justify-center gap-2"
+                                        >
+                                            <span>📄 최종 진로 탐구 보고서(.doc 워드 파일) 다운로드</span>
+                                        </button>
+                                    </div>
+                                </section>
+
+                                {/* ============================================================
+                                    6-3: PDF 변환 및 제출용 완결형 종합 보고서 프리뷰
+                                ============================================================ */}
+                                <section id="printable-report-area" className="p-6 md:p-8 rounded-3xl bg-white border-2 border-indigo-200 space-y-6">
+                                    <div className="border-b-2 border-indigo-900 pb-4 flex flex-col sm:flex-row justify-between sm:items-end gap-2">
+                                        <div>
+                                            <span className="text-[11px] font-black text-indigo-600">고등학교 1학년 진로 심화 탐구 포트폴리오</span>
+                                            <h3 className="text-xl md:text-2xl font-black text-slate-900 mt-0.5">
+                                                🎓 고등학교 1학년 진로 심화 탐구 종합 보고서
+                                            </h3>
+                                        </div>
+                                        <div className="text-xs font-extrabold text-slate-700 bg-slate-50 px-4 py-2 rounded-xl border">
+                                            학번: {studentId || '미입력'} &nbsp;|&nbsp; 이름: {studentName || '미입력'} ({avatar})
+                                        </div>
+                                    </div>
+
+                                    {/* ★ 1~6차시 통합 교차 분석 섹션 (종합 진단 리포트) */}
+                                    <div className="p-5 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-black text-indigo-950">
+                                                📊 [종합 진단] 1~6차시 진로 탐구 역량 및 성장 방향 분석
+                                            </h4>
+                                            <span className="text-[11px] font-bold text-indigo-700 bg-white px-2.5 py-0.5 rounded-full border border-indigo-200">
+                                                {myCareerProfile ? myCareerProfile.name : '자기주도 탐구형'} × {myTargetJob}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2 text-xs text-slate-800 leading-relaxed bg-white p-4 rounded-xl border border-indigo-100">
+                                            <p><strong>• 진로 정체성 및 동기 분석:</strong> {comprehensiveAnalysis.identityAnalysis}</p>
+                                            <p><strong>• 직무 이해 및 교과 융합 분석:</strong> {comprehensiveAnalysis.academicAnalysis}</p>
+                                            <p><strong>• 실천적 문제해결 및 협업 분석:</strong> {comprehensiveAnalysis.projectAnalysis}</p>
+                                            <p><strong>• 향후 학업 설계 종합 의견:</strong> {comprehensiveAnalysis.futureRoadmap}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* 차시별 상세 활동 기록 표 */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                        <div className="bg-slate-50 p-4 rounded-2xl border space-y-1.5">
+                                            <p className="font-black text-indigo-800 text-sm">1. 진로 강점 유형 및 탐색 동기</p>
+                                            <p><strong>• 진단 유형:</strong> {myCareerProfile ? `${myCareerProfile.name} (${myCareerProfile.badge})` : '탐색 중'}</p>
+                                            <p><strong>• 희망 진로 분야:</strong> {myTargetJob}</p>
+                                            <p><strong>• 강점 발휘 경험:</strong> {data.step1.wsExperience || '-'}</p>
+                                            <p><strong>• 관심 계기 및 추구 가치:</strong> {data.step1.wsReason || '-'} / {data.step1.wsValue || '-'}</p>
+                                        </div>
+
+                                        <div className="bg-slate-50 p-4 rounded-2xl border space-y-1.5">
+                                            <p className="font-black text-indigo-800 text-sm">2. 2036 미래 멘토링 & 직무 분석</p>
+                                            <p><strong>• 핵심 업무와 매력:</strong> {data.step2.noteCoreWork || '-'}</p>
+                                            <p><strong>• 요구 역량과 태도:</strong> {data.step2.noteCompetency || '-'}</p>
+                                            <p><strong>• 고1 학업 준비 다짐:</strong> {data.step2.noteHighSchool || '-'}</p>
+                                        </div>
+
+                                        <div className="bg-slate-50 p-4 rounded-2xl border space-y-1.5">
+                                            <p className="font-black text-indigo-800 text-sm">3. 교과 연계 시사·윤리 딜레마 탐구</p>
+                                            <p><strong>• 탐구 주제:</strong> {currentCaseObj.title}</p>
+                                            <p><strong>• 연계 교과목:</strong> {data.step3.linkedSubjects.join(', ') || '-'}</p>
+                                            <p><strong>• 교과 연계 분석:</strong> {data.step3.subjectConnection || '-'}</p>
+                                            <p><strong>• 나만의 해결책:</strong> {data.step3.mySolution || '-'}</p>
+                                        </div>
+
+                                        <div className="bg-slate-50 p-4 rounded-2xl border space-y-1.5">
+                                            <p className="font-black text-indigo-800 text-sm">4. 사회문제 해결 미니 프로젝트 기획</p>
+                                            <p><strong>• 프로젝트명:</strong> {data.step4.projectTitle || '-'} (대상: {data.step4.targetAudience || '-'})</p>
+                                            <p><strong>• 문제 배경:</strong> {data.step4.problemBackground || '-'}</p>
+                                            <p><strong>• 핵심 아이디어:</strong> {data.step4.coreIdea || '-'}</p>
+                                            <p><strong>• 실행 계획:</strong> ①{data.step4.actionStep1 || '-'} ➔ ②{data.step4.actionStep2 || '-'} ➔ ③{data.step4.actionStep3 || '-'}</p>
+                                        </div>
+
+                                        <div className="bg-slate-50 p-4 rounded-2xl border space-y-1.5">
+                                            <p className="font-black text-indigo-800 text-sm">5. 동료 피드백 수용 및 기획 고도화</p>
+                                            <p><strong>• 피드백 파트너:</strong> {data.step5.peerName || '-'}</p>
+                                            <p><strong>• 동료 칭찬 및 질문:</strong> {data.step5.peerPraise || '-'} / {data.step5.peerQuestion || '-'}</p>
+                                            <p><strong>• 최종 개선안(Revision):</strong> {data.step5.myFinalRevision || '-'}</p>
+                                        </div>
+
+                                        <div className="bg-slate-50 p-4 rounded-2xl border space-y-1.5">
+                                            <p className="font-black text-indigo-800 text-sm">6. 맞춤형 선택과목 & 3개년 로드맵</p>
+                                            <p><strong>• 2학년 희망 선택과목:</strong> {data.step6.selectedGrade2Subjects.join(', ') || (myCareerProfile ? myCareerProfile.grade2Subjects.join(', ') : '-')}</p>
+                                            <p><strong>• 학년별 계획:</strong> [1학년] {data.step6.roadmapGrade1 || '-'} / [2학년] {data.step6.roadmapGrade2 || '-'} / [3학년] {data.step6.roadmapGrade3 || '-'}</p>
+                                            <p><strong>• 최종 성찰:</strong> {data.step6.finalReflection || '-'}</p>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {/* 하단 이전/다음 네비게이션 버튼 */}
+                        <div className="flex justify-between items-center mt-8 pt-5 border-t border-slate-100 no-print">
+                            <button
+                                onClick={() => {
+                                    setCurrentStep(prev => Math.max(prev - 1, 1));
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                disabled={currentStep === 1}
+                                className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black transition ${
+                                    currentStep === 1 ? 'opacity-30 cursor-not-allowed bg-slate-100' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                                }`}
+                            >
+                                ← 이전 차시
+                            </button>
+                            <span className="text-xs font-extrabold text-slate-400">
+                                {currentStep} / 6 차시 워크북
+                            </span>
+                            <button
+                                onClick={() => {
+                                    setCurrentStep(prev => Math.min(prev + 1, 6));
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                disabled={currentStep === 6}
+                                className={`px-5 py-2.5 rounded-xl text-xs md:text-sm font-black text-white transition ${
+                                    currentStep === 6 ? 'opacity-30 cursor-not-allowed bg-purple-400' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 shadow-md'
+                                }`}
+                            >
+                                다음 차시 →
+                            </button>
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot ? ReactDOM.createRoot(document.getElementById('root')) : null;
+        if (root) {
+            root.render(<App />);
+        } else {
+            ReactDOM.render(<App />, document.getElementById('root'));
+        }
+    </script>
+</body>
+</html>
